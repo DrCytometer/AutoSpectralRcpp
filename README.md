@@ -13,6 +13,12 @@ Poisson-Hybrid approach. This minimizes unmixing-dependent spread and
 spillover spread, producing better resolution in most cases than OLS or
 WLS unmixing.
 
+<figure>
+<img src="images/Poisson_unmixing_example.png"
+alt="Poisson-IRLS Hybrid Unmixing" />
+<figcaption aria-hidden="true">Poisson-IRLS Hybrid Unmixing</figcaption>
+</figure>
+
 ## Installation
 
 Recommended, but not essential: first install AutoSpectral:

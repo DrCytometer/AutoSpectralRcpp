@@ -23,6 +23,8 @@ spectral unmixing of flow cytometry data using the Poisson-Hybrid approach. This
 minimizes unmixing-dependent spread and spillover spread, producing better
 resolution in most cases than OLS or WLS unmixing.
 
+![Poisson-IRLS Hybrid Unmixing](images/Poisson_unmixing_example.png)
+
 ## Installation
 
 Recommended, but not essential: first install AutoSpectral:

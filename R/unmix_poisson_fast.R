@@ -25,8 +25,8 @@ unmix.poisson.fast <- function( raw.data, spectra, maxit = 100,  tol = 1e-6,
   # set any negative or zero values to a very small number
   raw.data <- pmax( raw.data, 1e-6 )
   # spectra <- abs( spectra )
-  spectra.t <- t( spectra )
-  spectra.t[ spectra.t <= 0 ] <- 1e-6
+  # spectra.t <- t( spectra )
+  spectra[ spectra <= 0 ] <- 1e-6
 
   # WLS initiation
   beta.init <- unmix.wls( raw.data, spectra )
