@@ -69,7 +69,7 @@ unmix.poisson.fast <- function( raw.data, spectra, maxit = 100,  tol = 1e-6,
 
   # check for nonconvergent points from C++ unmixing and revert towards WLS
   non.convergent <- which( unmixed == 1e-6, arr.ind = TRUE )
-  unmixed[ non.convergent, ] <- 0.5*wls.unmix[ non.convergent, ] + 0.5*unmixed[ non.convergent, ]
+  unmixed[ non.convergent, ] <- 0.1*wls.unmix[ non.convergent, ] + 0.9*unmixed[ non.convergent, ]
 
   colnames( unmixed ) <- rownames( spectra )
 
