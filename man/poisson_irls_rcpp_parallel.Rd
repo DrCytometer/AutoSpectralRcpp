@@ -10,7 +10,8 @@ poisson_irls_rcpp_parallel(
   beta_init,
   maxit = 25L,
   tol = 1e-06,
-  n_threads = 1L
+  n_threads = 1L,
+  divergence_threshold = 10000
 )
 }
 \arguments{
@@ -25,6 +26,8 @@ poisson_irls_rcpp_parallel(
 \item{tol}{convergence tolerance}
 
 \item{n_threads}{number of threads to use (OpenMP)}
+
+\item{divergence_threshold}{maximum allowed divergence before fallback}
 }
 \description{
 Poisson IRLS Parallel

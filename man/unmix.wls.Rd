@@ -22,5 +22,5 @@ A matrix containing unnmixed data with cells in rows and fluorophores in columns
 }
 \description{
 This function performs unmixing of raw data using weighted least
-   squares (WLS) based on the provided spectra. Weighting is by channel power.
+squares (WLS) based on the provided spectra. Weighting is by channel power.
 }

@@ -14,7 +14,8 @@ arma::mat poisson_irls_rcpp_parallel(const arma::mat& raw_data_in,
                                      const arma::mat& beta_init_in,
                                      const int maxit = 25,
                                      const double tol = 1e-6,
-                                     const int n_threads = 1) {
+                                     const int n_threads = 1,
+                                     const double divergence_threshold = 1e4) {
 
   int n_cells = raw_data_in.n_rows;
   arma::mat X = spectra.t(); // detectors x fluorophores
@@ -27,7 +28,10 @@ arma::mat poisson_irls_rcpp_parallel(const arma::mat& raw_data_in,
 #pragma omp parallel for
   for (int i = 0; i < n_cells; i++) {
     arma::rowvec y = clamp(raw_data_in.row(i), 1e-6, datum::inf);
-    arma::colvec beta = clamp(beta_init_in.row(i).t(), 1e-6, datum::inf);
+    arma::colvec beta_init = clamp(beta_init_in.row(i).t(), 1e-6, datum::inf);
+    arma::colvec beta = beta_init;
+
+    bool success = true;
 
     for (int iter = 0; iter < maxit; iter++) {
       arma::colvec eta = X * beta;
@@ -41,14 +45,12 @@ arma::mat poisson_irls_rcpp_parallel(const arma::mat& raw_data_in,
       arma::colvec zw = sqrt(w) % z;
       arma::colvec beta_new;
 
-      bool success = true;
       try {
         beta_new = solve(Xw.t() * Xw, Xw.t() * zw);
       } catch (...) {
         success = false;
+        break;
       }
-
-      if (!success) break;
 
       if (norm(beta_new - beta, 2) < tol) {
         beta = beta_new;
@@ -58,8 +60,14 @@ arma::mat poisson_irls_rcpp_parallel(const arma::mat& raw_data_in,
       beta = beta_new;
     }
 
+    // If divergence beyond threshold, revert
+    if (!success || norm(beta - beta_init, 2) > divergence_threshold) {
+      beta = beta_init;
+    }
+
     result.row(i) = beta.t();
   }
 
   return result;
 }
+

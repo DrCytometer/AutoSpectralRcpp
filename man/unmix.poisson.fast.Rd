@@ -4,7 +4,14 @@
 \alias{unmix.poisson.fast}
 \title{Poisson IRLS Unmixing (via C++)}
 \usage{
-unmix.poisson.fast(raw.data, spectra, maxit = 100, tol = 1e-06, n_threads = 0)
+unmix.poisson.fast(
+  raw.data,
+  spectra,
+  maxit = 100,
+  tol = 1e-06,
+  n_threads = 0,
+  divergence.threshold = 10000
+)
 }
 \arguments{
 \item{raw.data}{Matrix of cells x detectors}
@@ -19,12 +26,16 @@ Will converge faster; smaller numbers may improve convergence.}
 
 \item{n_threads}{Numeric. Number of parallel processes to be used in C++.
 Recommended is asp$worker.process.n (or one less than availableCores()).}
+
+\item{divergence.threshold}{Numeric. Threshold for reversion to the initial
+WLS unmixing for any point that changes dramatically during Poisson IRLS.
+Default is 1e4.}
 }
 \value{
 Matrix of unmixed fluorophore intensities
 }
 \description{
 Unmixes spectral flow cytometry data via iteratively reweighted least squares
-    (IRLS) towards a Poisson distribution, starting with weighted least squares
-    (WLS). This is a wrapper function in R around the C++ worker function.
+(IRLS) towards a Poisson distribution, starting with weighted least squares
+(WLS). This is a wrapper function in R around the C++ worker function.
 }

@@ -12,8 +12,8 @@ Rcpp::Rostream<false>& Rcpp::Rcerr = Rcpp::Rcpp_cerr_get();
 #endif
 
 // poisson_irls_rcpp_parallel
-arma::mat poisson_irls_rcpp_parallel(const arma::mat& raw_data_in, const arma::mat& spectra, const arma::mat& beta_init_in, const int maxit, const double tol, const int n_threads);
-RcppExport SEXP _AutoSpectralRcpp_poisson_irls_rcpp_parallel(SEXP raw_data_inSEXP, SEXP spectraSEXP, SEXP beta_init_inSEXP, SEXP maxitSEXP, SEXP tolSEXP, SEXP n_threadsSEXP) {
+arma::mat poisson_irls_rcpp_parallel(const arma::mat& raw_data_in, const arma::mat& spectra, const arma::mat& beta_init_in, const int maxit, const double tol, const int n_threads, const double divergence_threshold);
+RcppExport SEXP _AutoSpectralRcpp_poisson_irls_rcpp_parallel(SEXP raw_data_inSEXP, SEXP spectraSEXP, SEXP beta_init_inSEXP, SEXP maxitSEXP, SEXP tolSEXP, SEXP n_threadsSEXP, SEXP divergence_thresholdSEXP) {
 BEGIN_RCPP
     Rcpp::RObject rcpp_result_gen;
     Rcpp::RNGScope rcpp_rngScope_gen;
@@ -23,13 +23,14 @@ BEGIN_RCPP
     Rcpp::traits::input_parameter< const int >::type maxit(maxitSEXP);
     Rcpp::traits::input_parameter< const double >::type tol(tolSEXP);
     Rcpp::traits::input_parameter< const int >::type n_threads(n_threadsSEXP);
-    rcpp_result_gen = Rcpp::wrap(poisson_irls_rcpp_parallel(raw_data_in, spectra, beta_init_in, maxit, tol, n_threads));
+    Rcpp::traits::input_parameter< const double >::type divergence_threshold(divergence_thresholdSEXP);
+    rcpp_result_gen = Rcpp::wrap(poisson_irls_rcpp_parallel(raw_data_in, spectra, beta_init_in, maxit, tol, n_threads, divergence_threshold));
     return rcpp_result_gen;
 END_RCPP
 }
 
 static const R_CallMethodDef CallEntries[] = {
-    {"_AutoSpectralRcpp_poisson_irls_rcpp_parallel", (DL_FUNC) &_AutoSpectralRcpp_poisson_irls_rcpp_parallel, 6},
+    {"_AutoSpectralRcpp_poisson_irls_rcpp_parallel", (DL_FUNC) &_AutoSpectralRcpp_poisson_irls_rcpp_parallel, 7},
     {NULL, NULL, 0}
 };
 
