@@ -18,12 +18,20 @@
 #' @param divergence.threshold Numeric. Threshold for reversion to the initial
 #'     WLS unmixing for any point that changes dramatically during Poisson IRLS.
 #'     Default is 1e4.
+#' @param divergence.handling String. How to handle divergent cells from Poisson
+#'     IRLS. Options are "NonNeg" (non-negativity will be enforced), "WLS" (revert
+#'     to WLS intial unmix) or "Balance" (WLS and NonNeg will be averaged).
+#'     Default is "Balance".
+#' @param balance.weight Numeric. Weighting to average non-convergent cells. Used
+#'     for "Balance" option under divergence.handling. Default is 0.5.
 #' @return Matrix of unmixed fluorophore intensities
 #' @export
 
 
 unmix.poisson.fast <- function( raw.data, spectra, maxit = 100,  tol = 1e-6,
-                                n_threads = 0, divergence.threshold = 1e4 ) {
+                                n_threads = 0, divergence.threshold = 1e4,
+                                divergence.handling = "Balance",
+                                balance.weight = 0.5 ) {
 
   # safety checks on inputs so we don't crash when calling C++
   if ( !is.matrix( raw.data ) || !is.matrix( spectra ) ) {
@@ -69,7 +77,13 @@ unmix.poisson.fast <- function( raw.data, spectra, maxit = 100,  tol = 1e-6,
 
   # check for nonconvergent points from C++ unmixing and revert towards WLS
   non.convergent <- which( unmixed == 1e-6, arr.ind = TRUE )
-  unmixed[ non.convergent, ] <- 0.5*wls.unmix[ non.convergent, ] + 0.5*unmixed[ non.convergent, ]
+
+  if ( divergence.handling == "Balance" ) {
+    unmixed[ non.convergent, ] <- balance.weight*wls.unmix[ non.convergent, ] +
+      balance.weight*unmixed[ non.convergent, ]
+  } else if ( divergence.handling == "WLS" ) {
+    unmixed[ non.convergent, ] <- wls.unmix[ non.convergent, ]
+  }
 
   colnames( unmixed ) <- rownames( spectra )
 

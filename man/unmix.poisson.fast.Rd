@@ -10,7 +10,9 @@ unmix.poisson.fast(
   maxit = 100,
   tol = 1e-06,
   n_threads = 0,
-  divergence.threshold = 10000
+  divergence.threshold = 10000,
+  divergence.handling = "Balance",
+  balance.weight = 0.5
 )
 }
 \arguments{
@@ -30,6 +32,14 @@ Recommended is asp$worker.process.n (or one less than availableCores()).}
 \item{divergence.threshold}{Numeric. Threshold for reversion to the initial
 WLS unmixing for any point that changes dramatically during Poisson IRLS.
 Default is 1e4.}
+
+\item{divergence.handling}{String. How to handle divergent cells from Poisson
+IRLS. Options are "NonNeg" (non-negativity will be enforced), "WLS" (revert
+to WLS intial unmix) or "Balance" (WLS and NonNeg will be averaged).
+Default is "Balance".}
+
+\item{balance.weight}{Numeric. Weighting to average non-convergent cells. Used
+for "Balance" option under divergence.handling. Default is 0.5.}
 }
 \value{
 Matrix of unmixed fluorophore intensities
