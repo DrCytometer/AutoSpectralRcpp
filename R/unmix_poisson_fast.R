@@ -80,7 +80,7 @@ unmix.poisson.fast <- function( raw.data, spectra, maxit = 100,  tol = 1e-6,
 
   if ( divergence.handling == "Balance" ) {
     unmixed[ non.convergent, ] <- balance.weight*wls.unmix[ non.convergent, ] +
-      balance.weight*unmixed[ non.convergent, ]
+      ( 1 - balance.weight )*unmixed[ non.convergent, ]
   } else if ( divergence.handling == "WLS" ) {
     unmixed[ non.convergent, ] <- wls.unmix[ non.convergent, ]
   }
