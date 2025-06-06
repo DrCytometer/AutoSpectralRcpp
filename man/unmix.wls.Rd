@@ -7,18 +7,20 @@
 unmix.wls(raw.data, spectra, weights = NULL)
 }
 \arguments{
-\item{raw.data}{Expression data from raw fcs files. Cells in rows and detectors
-(raw channels) in columns. Columns should be fluorescent data only and must
-match the columns in spectra.}
+\item{raw.data}{Expression data from raw fcs files. Cells in rows and
+detectors (raw channels) in columns. Columns should be fluorescent data only
+and must match the columns in spectra.}
 
-\item{spectra}{Spectral signatures of fluorophores, normalized between 0 and 1,
-with fluorophores in rows and detectors (channels) in columns.}
+\item{spectra}{Spectral signatures of fluorophores, normalized between 0
+and 1, with fluorophores in rows and detectors (channels) in columns.}
 
-\item{weights}{Optional numeric vector of weights (one per fluorescent detector).
-Default is NULL, in which case weighting will be done by channel means.}
+\item{weights}{Optional numeric vector of weights (one per fluorescent
+detector). Default is \code{NULL}, in which case weighting will be done by
+channel mean intensities.}
 }
 \value{
-A matrix containing unnmixed data with cells in rows and fluorophores in columns.
+A matrix containing unnmixed data with cells in rows and
+fluorophores in columns.
 }
 \description{
 This function performs unmixing of raw data using weighted least

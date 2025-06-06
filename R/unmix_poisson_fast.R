@@ -4,27 +4,29 @@
 #'
 #' @description
 #' Unmixes spectral flow cytometry data via iteratively reweighted least squares
-#'     (IRLS) towards a Poisson distribution, starting with weighted least squares
-#'     (WLS). This is a wrapper function in R around the C++ worker function.
+#' (IRLS) towards a Poisson distribution, starting with weighted least squares
+#' (WLS). This is a wrapper function in R around the C++ worker function.
 #'
 #' @param raw.data Matrix of cells x detectors
 #' @param spectra Matrix of fluorophores x detectors
 #' @param maxit Numeric. The maximum number of iterations to be performed.
-#'     Default is 100.
-#' @param tol Numeric. Tolerance for convergence. Default is 1e-6. Higher numbers
-#'     Will converge faster; smaller numbers may improve convergence.
+#' Default is `100`
+#' @param tol Numeric. Tolerance for convergence. Default is 1e-6. Higher
+#' numbers Will converge faster; smaller numbers may improve convergence.
 #' @param n_threads Numeric. Number of parallel processes to be used in C++.
-#'     Recommended is asp$worker.process.n (or one less than availableCores()).
+#' Recommended is `asp$worker.process.n` (or one less than `availableCores()` ).
 #' @param divergence.threshold Numeric. Threshold for reversion to the initial
-#'     WLS unmixing for any point that changes dramatically during Poisson IRLS.
-#'     Default is 1e4.
+#' WLS unmixing for any point that changes dramatically during Poisson IRLS.
+#' Default is `1e4`.
 #' @param divergence.handling String. How to handle divergent cells from Poisson
-#'     IRLS. Options are "NonNeg" (non-negativity will be enforced), "WLS" (revert
-#'     to WLS intial unmix) or "Balance" (WLS and NonNeg will be averaged).
-#'     Default is "Balance".
-#' @param balance.weight Numeric. Weighting to average non-convergent cells. Used
-#'     for "Balance" option under divergence.handling. Default is 0.5.
+#' IRLS. Options are `NonNeg` (non-negativity will be enforced), `WLS` (revert
+#' to WLS intial unmix) or `Balance` (`WLS` and `NonNeg` will be averaged).
+#' Default is `Balance`.
+#' @param balance.weight Numeric. Weighting to average non-convergent cells.
+#' Used for `Balance` option under `divergence.handling` Default is `0.5`.
+#'
 #' @return Matrix of unmixed fluorophore intensities
+#'
 #' @export
 
 

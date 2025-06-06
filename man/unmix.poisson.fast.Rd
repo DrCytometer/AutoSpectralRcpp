@@ -21,25 +21,25 @@ unmix.poisson.fast(
 \item{spectra}{Matrix of fluorophores x detectors}
 
 \item{maxit}{Numeric. The maximum number of iterations to be performed.
-Default is 100.}
+Default is \code{100}}
 
-\item{tol}{Numeric. Tolerance for convergence. Default is 1e-6. Higher numbers
-Will converge faster; smaller numbers may improve convergence.}
+\item{tol}{Numeric. Tolerance for convergence. Default is 1e-6. Higher
+numbers Will converge faster; smaller numbers may improve convergence.}
 
 \item{n_threads}{Numeric. Number of parallel processes to be used in C++.
-Recommended is asp$worker.process.n (or one less than availableCores()).}
+Recommended is \code{asp$worker.process.n} (or one less than \code{availableCores()} ).}
 
 \item{divergence.threshold}{Numeric. Threshold for reversion to the initial
 WLS unmixing for any point that changes dramatically during Poisson IRLS.
-Default is 1e4.}
+Default is \code{1e4}.}
 
 \item{divergence.handling}{String. How to handle divergent cells from Poisson
-IRLS. Options are "NonNeg" (non-negativity will be enforced), "WLS" (revert
-to WLS intial unmix) or "Balance" (WLS and NonNeg will be averaged).
-Default is "Balance".}
+IRLS. Options are \code{NonNeg} (non-negativity will be enforced), \code{WLS} (revert
+to WLS intial unmix) or \code{Balance} (\code{WLS} and \code{NonNeg} will be averaged).
+Default is \code{Balance}.}
 
-\item{balance.weight}{Numeric. Weighting to average non-convergent cells. Used
-for "Balance" option under divergence.handling. Default is 0.5.}
+\item{balance.weight}{Numeric. Weighting to average non-convergent cells.
+Used for \code{Balance} option under \code{divergence.handling} Default is \code{0.5}.}
 }
 \value{
 Matrix of unmixed fluorophore intensities
