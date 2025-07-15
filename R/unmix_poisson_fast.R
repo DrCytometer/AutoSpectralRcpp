@@ -9,6 +9,9 @@
 #'
 #' @param raw.data Matrix of cells x detectors
 #' @param spectra Matrix of fluorophores x detectors
+#' @param weights Optional numeric vector of weights, one per fluorescent
+#' detector. Default is `NULL`, in which case weighting will be done by
+#' channel means.
 #' @param maxit Numeric. The maximum number of iterations to be performed.
 #' Default is `100`
 #' @param tol Numeric. Tolerance for convergence. Default is 1e-6. Higher
@@ -30,7 +33,8 @@
 #' @export
 
 
-unmix.poisson.fast <- function( raw.data, spectra, maxit = 100,  tol = 1e-6,
+unmix.poisson.fast <- function( raw.data, spectra, weights = NULL,
+                                maxit = 100,  tol = 1e-6,
                                 n_threads = 0, divergence.threshold = 1e4,
                                 divergence.handling = "Balance",
                                 balance.weight = 0.5 ) {
@@ -62,7 +66,7 @@ unmix.poisson.fast <- function( raw.data, spectra, maxit = 100,  tol = 1e-6,
   spectra[ spectra <= 0 ] <- 1e-6
 
   # WLS initial unmixing
-  wls.unmix <- unmix.wls( raw.data, spectra )
+  wls.unmix <- unmix.wls( raw.data, spectra, weights )
   beta.init <- wls.unmix
   beta.init[ beta.init <= 0 ] <- 1e-6
 

@@ -7,6 +7,7 @@
 unmix.poisson.fast(
   raw.data,
   spectra,
+  weights = NULL,
   maxit = 100,
   tol = 1e-06,
   n_threads = 0,
@@ -19,6 +20,10 @@ unmix.poisson.fast(
 \item{raw.data}{Matrix of cells x detectors}
 
 \item{spectra}{Matrix of fluorophores x detectors}
+
+\item{weights}{Optional numeric vector of weights, one per fluorescent
+detector. Default is \code{NULL}, in which case weighting will be done by
+channel means.}
 
 \item{maxit}{Numeric. The maximum number of iterations to be performed.
 Default is \code{100}}
