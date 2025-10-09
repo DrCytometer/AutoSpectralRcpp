@@ -11,6 +11,64 @@ Rcpp::Rostream<true>&  Rcpp::Rcout = Rcpp::Rcpp_cout_get();
 Rcpp::Rostream<false>& Rcpp::Rcerr = Rcpp::Rcpp_cerr_get();
 #endif
 
+// optimize_unmix_rcpp_exact
+arma::mat optimize_unmix_rcpp_exact(const arma::mat& remaining_raw, const arma::mat& unmixed, const arma::mat& spectra, const arma::vec& pos_thresholds, const arma::uvec& optimize_idx_r, const std::vector<arma::mat>& variantsList, const arma::vec& weights, const bool weighted, const int nthreads);
+RcppExport SEXP _AutoSpectralRcpp_optimize_unmix_rcpp_exact(SEXP remaining_rawSEXP, SEXP unmixedSEXP, SEXP spectraSEXP, SEXP pos_thresholdsSEXP, SEXP optimize_idx_rSEXP, SEXP variantsListSEXP, SEXP weightsSEXP, SEXP weightedSEXP, SEXP nthreadsSEXP) {
+BEGIN_RCPP
+    Rcpp::RObject rcpp_result_gen;
+    Rcpp::RNGScope rcpp_rngScope_gen;
+    Rcpp::traits::input_parameter< const arma::mat& >::type remaining_raw(remaining_rawSEXP);
+    Rcpp::traits::input_parameter< const arma::mat& >::type unmixed(unmixedSEXP);
+    Rcpp::traits::input_parameter< const arma::mat& >::type spectra(spectraSEXP);
+    Rcpp::traits::input_parameter< const arma::vec& >::type pos_thresholds(pos_thresholdsSEXP);
+    Rcpp::traits::input_parameter< const arma::uvec& >::type optimize_idx_r(optimize_idx_rSEXP);
+    Rcpp::traits::input_parameter< const std::vector<arma::mat>& >::type variantsList(variantsListSEXP);
+    Rcpp::traits::input_parameter< const arma::vec& >::type weights(weightsSEXP);
+    Rcpp::traits::input_parameter< const bool >::type weighted(weightedSEXP);
+    Rcpp::traits::input_parameter< const int >::type nthreads(nthreadsSEXP);
+    rcpp_result_gen = Rcpp::wrap(optimize_unmix_rcpp_exact(remaining_raw, unmixed, spectra, pos_thresholds, optimize_idx_r, variantsList, weights, weighted, nthreads));
+    return rcpp_result_gen;
+END_RCPP
+}
+// optimize_unmix_rcpp_fast
+arma::mat optimize_unmix_rcpp_fast(const arma::mat& remaining_raw, const arma::mat& unmixed, const arma::mat& spectra, const arma::vec& pos_thresholds, const arma::uvec& optimize_idx_r, const std::vector<arma::mat>& variantsList, const arma::vec& weights, const bool weighted, const int nthreads);
+RcppExport SEXP _AutoSpectralRcpp_optimize_unmix_rcpp_fast(SEXP remaining_rawSEXP, SEXP unmixedSEXP, SEXP spectraSEXP, SEXP pos_thresholdsSEXP, SEXP optimize_idx_rSEXP, SEXP variantsListSEXP, SEXP weightsSEXP, SEXP weightedSEXP, SEXP nthreadsSEXP) {
+BEGIN_RCPP
+    Rcpp::RObject rcpp_result_gen;
+    Rcpp::RNGScope rcpp_rngScope_gen;
+    Rcpp::traits::input_parameter< const arma::mat& >::type remaining_raw(remaining_rawSEXP);
+    Rcpp::traits::input_parameter< const arma::mat& >::type unmixed(unmixedSEXP);
+    Rcpp::traits::input_parameter< const arma::mat& >::type spectra(spectraSEXP);
+    Rcpp::traits::input_parameter< const arma::vec& >::type pos_thresholds(pos_thresholdsSEXP);
+    Rcpp::traits::input_parameter< const arma::uvec& >::type optimize_idx_r(optimize_idx_rSEXP);
+    Rcpp::traits::input_parameter< const std::vector<arma::mat>& >::type variantsList(variantsListSEXP);
+    Rcpp::traits::input_parameter< const arma::vec& >::type weights(weightsSEXP);
+    Rcpp::traits::input_parameter< const bool >::type weighted(weightedSEXP);
+    Rcpp::traits::input_parameter< const int >::type nthreads(nthreadsSEXP);
+    rcpp_result_gen = Rcpp::wrap(optimize_unmix_rcpp_fast(remaining_raw, unmixed, spectra, pos_thresholds, optimize_idx_r, variantsList, weights, weighted, nthreads));
+    return rcpp_result_gen;
+END_RCPP
+}
+// optimize_unmix_rcpp_woodbury
+arma::mat optimize_unmix_rcpp_woodbury(const arma::mat& remaining_raw, const arma::mat& unmixed, const arma::mat& spectra, const arma::vec& pos_thresholds, const arma::uvec& optimize_idx_r, const std::vector<arma::mat>& variantsList, const arma::vec& weights, const bool weighted, const int nthreads, const double singular_tol);
+RcppExport SEXP _AutoSpectralRcpp_optimize_unmix_rcpp_woodbury(SEXP remaining_rawSEXP, SEXP unmixedSEXP, SEXP spectraSEXP, SEXP pos_thresholdsSEXP, SEXP optimize_idx_rSEXP, SEXP variantsListSEXP, SEXP weightsSEXP, SEXP weightedSEXP, SEXP nthreadsSEXP, SEXP singular_tolSEXP) {
+BEGIN_RCPP
+    Rcpp::RObject rcpp_result_gen;
+    Rcpp::RNGScope rcpp_rngScope_gen;
+    Rcpp::traits::input_parameter< const arma::mat& >::type remaining_raw(remaining_rawSEXP);
+    Rcpp::traits::input_parameter< const arma::mat& >::type unmixed(unmixedSEXP);
+    Rcpp::traits::input_parameter< const arma::mat& >::type spectra(spectraSEXP);
+    Rcpp::traits::input_parameter< const arma::vec& >::type pos_thresholds(pos_thresholdsSEXP);
+    Rcpp::traits::input_parameter< const arma::uvec& >::type optimize_idx_r(optimize_idx_rSEXP);
+    Rcpp::traits::input_parameter< const std::vector<arma::mat>& >::type variantsList(variantsListSEXP);
+    Rcpp::traits::input_parameter< const arma::vec& >::type weights(weightsSEXP);
+    Rcpp::traits::input_parameter< const bool >::type weighted(weightedSEXP);
+    Rcpp::traits::input_parameter< const int >::type nthreads(nthreadsSEXP);
+    Rcpp::traits::input_parameter< const double >::type singular_tol(singular_tolSEXP);
+    rcpp_result_gen = Rcpp::wrap(optimize_unmix_rcpp_woodbury(remaining_raw, unmixed, spectra, pos_thresholds, optimize_idx_r, variantsList, weights, weighted, nthreads, singular_tol));
+    return rcpp_result_gen;
+END_RCPP
+}
 // poisson_irls_rcpp_parallel
 arma::mat poisson_irls_rcpp_parallel(const arma::mat& raw_data_in, const arma::mat& spectra, const arma::mat& beta_init_in, const int maxit, const double tol, const int n_threads, const double divergence_threshold);
 RcppExport SEXP _AutoSpectralRcpp_poisson_irls_rcpp_parallel(SEXP raw_data_inSEXP, SEXP spectraSEXP, SEXP beta_init_inSEXP, SEXP maxitSEXP, SEXP tolSEXP, SEXP n_threadsSEXP, SEXP divergence_thresholdSEXP) {
@@ -30,6 +88,9 @@ END_RCPP
 }
 
 static const R_CallMethodDef CallEntries[] = {
+    {"_AutoSpectralRcpp_optimize_unmix_rcpp_exact", (DL_FUNC) &_AutoSpectralRcpp_optimize_unmix_rcpp_exact, 9},
+    {"_AutoSpectralRcpp_optimize_unmix_rcpp_fast", (DL_FUNC) &_AutoSpectralRcpp_optimize_unmix_rcpp_fast, 9},
+    {"_AutoSpectralRcpp_optimize_unmix_rcpp_woodbury", (DL_FUNC) &_AutoSpectralRcpp_optimize_unmix_rcpp_woodbury, 10},
     {"_AutoSpectralRcpp_poisson_irls_rcpp_parallel", (DL_FUNC) &_AutoSpectralRcpp_poisson_irls_rcpp_parallel, 7},
     {NULL, NULL, 0}
 };
