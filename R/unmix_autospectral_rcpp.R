@@ -149,7 +149,7 @@ unmix.autospectral.rcpp <- function( raw.data, spectra, af.spectra,
   if ( calculate.error )
     RMSE <- sqrt( mean( residual^2 ) )
 
-  if ( verbose ) {
+  if ( verbose & calculate.error ) {
     af.error.reduction <- ( initial.error - sum( error ) ) / initial.error * 100
     af.error.reduction <- round( af.error.reduction, 2 )
     message( paste( "Unmixing error reduced by", af.error.reduction, "percent with per-cell AF extraction." ) )
@@ -193,7 +193,7 @@ unmix.autospectral.rcpp <- function( raw.data, spectra, af.spectra,
       return( unmixed )
   }
 
-  if ( verbose ) message( "Initializing fluorophore unmixing optimization cell-by-cell" )
+  if ( verbose ) message( "Optimizing fluorophore unmixing cell-by-cell" )
 
   # for fluor optimization, use raw.data with AF fitted component subtracted
   remaining.raw <- raw.data - fitted.af
