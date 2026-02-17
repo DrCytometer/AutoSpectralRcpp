@@ -33,35 +33,6 @@ BEGIN_RCPP
     return rcpp_result_gen;
 END_RCPP
 }
-// parallel_af_assign
-Rcpp::IntegerVector parallel_af_assign(const arma::mat& unmixed, const arma::mat& k_matrix, const arma::mat& v_library, int threads);
-RcppExport SEXP _AutoSpectralRcpp_parallel_af_assign(SEXP unmixedSEXP, SEXP k_matrixSEXP, SEXP v_librarySEXP, SEXP threadsSEXP) {
-BEGIN_RCPP
-    Rcpp::RObject rcpp_result_gen;
-    Rcpp::RNGScope rcpp_rngScope_gen;
-    Rcpp::traits::input_parameter< const arma::mat& >::type unmixed(unmixedSEXP);
-    Rcpp::traits::input_parameter< const arma::mat& >::type k_matrix(k_matrixSEXP);
-    Rcpp::traits::input_parameter< const arma::mat& >::type v_library(v_librarySEXP);
-    Rcpp::traits::input_parameter< int >::type threads(threadsSEXP);
-    rcpp_result_gen = Rcpp::wrap(parallel_af_assign(unmixed, k_matrix, v_library, threads));
-    return rcpp_result_gen;
-END_RCPP
-}
-// parallel_unmix_af
-Rcpp::List parallel_unmix_af(const arma::mat& raw_data, const arma::mat& af_spectra, const arma::mat& fluor_spectra, const arma::vec& af_assignments, int n_threads);
-RcppExport SEXP _AutoSpectralRcpp_parallel_unmix_af(SEXP raw_dataSEXP, SEXP af_spectraSEXP, SEXP fluor_spectraSEXP, SEXP af_assignmentsSEXP, SEXP n_threadsSEXP) {
-BEGIN_RCPP
-    Rcpp::RObject rcpp_result_gen;
-    Rcpp::RNGScope rcpp_rngScope_gen;
-    Rcpp::traits::input_parameter< const arma::mat& >::type raw_data(raw_dataSEXP);
-    Rcpp::traits::input_parameter< const arma::mat& >::type af_spectra(af_spectraSEXP);
-    Rcpp::traits::input_parameter< const arma::mat& >::type fluor_spectra(fluor_spectraSEXP);
-    Rcpp::traits::input_parameter< const arma::vec& >::type af_assignments(af_assignmentsSEXP);
-    Rcpp::traits::input_parameter< int >::type n_threads(n_threadsSEXP);
-    rcpp_result_gen = Rcpp::wrap(parallel_unmix_af(raw_data, af_spectra, fluor_spectra, af_assignments, n_threads));
-    return rcpp_result_gen;
-END_RCPP
-}
 // poisson_irls_rcpp_parallel
 arma::mat poisson_irls_rcpp_parallel(const arma::mat& raw_data_in, const arma::mat& spectra, const arma::mat& beta_init_in, const int maxit, const double tol, const int n_threads, const double divergence_threshold, const int max_halving_steps);
 RcppExport SEXP _AutoSpectralRcpp_poisson_irls_rcpp_parallel(SEXP raw_data_inSEXP, SEXP spectraSEXP, SEXP beta_init_inSEXP, SEXP maxitSEXP, SEXP tolSEXP, SEXP n_threadsSEXP, SEXP divergence_thresholdSEXP, SEXP max_halving_stepsSEXP) {
@@ -80,12 +51,40 @@ BEGIN_RCPP
     return rcpp_result_gen;
 END_RCPP
 }
+// unmix_af_fluorophores
+Rcpp::List unmix_af_fluorophores(const arma::mat& raw_data, const arma::mat& fluor_spectra, const arma::mat& af_spectra, int n_threads);
+RcppExport SEXP _AutoSpectralRcpp_unmix_af_fluorophores(SEXP raw_dataSEXP, SEXP fluor_spectraSEXP, SEXP af_spectraSEXP, SEXP n_threadsSEXP) {
+BEGIN_RCPP
+    Rcpp::RObject rcpp_result_gen;
+    Rcpp::RNGScope rcpp_rngScope_gen;
+    Rcpp::traits::input_parameter< const arma::mat& >::type raw_data(raw_dataSEXP);
+    Rcpp::traits::input_parameter< const arma::mat& >::type fluor_spectra(fluor_spectraSEXP);
+    Rcpp::traits::input_parameter< const arma::mat& >::type af_spectra(af_spectraSEXP);
+    Rcpp::traits::input_parameter< int >::type n_threads(n_threadsSEXP);
+    rcpp_result_gen = Rcpp::wrap(unmix_af_fluorophores(raw_data, fluor_spectra, af_spectra, n_threads));
+    return rcpp_result_gen;
+END_RCPP
+}
+// unmix_af_residuals
+Rcpp::List unmix_af_residuals(const arma::mat& raw_data, const arma::mat& fluor_spectra, const arma::mat& af_spectra, int n_threads);
+RcppExport SEXP _AutoSpectralRcpp_unmix_af_residuals(SEXP raw_dataSEXP, SEXP fluor_spectraSEXP, SEXP af_spectraSEXP, SEXP n_threadsSEXP) {
+BEGIN_RCPP
+    Rcpp::RObject rcpp_result_gen;
+    Rcpp::RNGScope rcpp_rngScope_gen;
+    Rcpp::traits::input_parameter< const arma::mat& >::type raw_data(raw_dataSEXP);
+    Rcpp::traits::input_parameter< const arma::mat& >::type fluor_spectra(fluor_spectraSEXP);
+    Rcpp::traits::input_parameter< const arma::mat& >::type af_spectra(af_spectraSEXP);
+    Rcpp::traits::input_parameter< int >::type n_threads(n_threadsSEXP);
+    rcpp_result_gen = Rcpp::wrap(unmix_af_residuals(raw_data, fluor_spectra, af_spectra, n_threads));
+    return rcpp_result_gen;
+END_RCPP
+}
 
 static const R_CallMethodDef CallEntries[] = {
     {"_AutoSpectralRcpp_optimize_unmix", (DL_FUNC) &_AutoSpectralRcpp_optimize_unmix, 12},
-    {"_AutoSpectralRcpp_parallel_af_assign", (DL_FUNC) &_AutoSpectralRcpp_parallel_af_assign, 4},
-    {"_AutoSpectralRcpp_parallel_unmix_af", (DL_FUNC) &_AutoSpectralRcpp_parallel_unmix_af, 5},
     {"_AutoSpectralRcpp_poisson_irls_rcpp_parallel", (DL_FUNC) &_AutoSpectralRcpp_poisson_irls_rcpp_parallel, 8},
+    {"_AutoSpectralRcpp_unmix_af_fluorophores", (DL_FUNC) &_AutoSpectralRcpp_unmix_af_fluorophores, 4},
+    {"_AutoSpectralRcpp_unmix_af_residuals", (DL_FUNC) &_AutoSpectralRcpp_unmix_af_residuals, 4},
     {NULL, NULL, 0}
 };
 

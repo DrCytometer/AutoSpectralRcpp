@@ -5,15 +5,15 @@ optimize_unmix <- function(raw_data, unmixed_init, base_spectra, pos_thresholds,
     .Call(`_AutoSpectralRcpp_optimize_unmix`, raw_data, unmixed_init, base_spectra, pos_thresholds, fluor_names, optimize_fluors, all_fluorophores, variants, delta_list, delta_norms, k, nthreads)
 }
 
-parallel_af_assign <- function(unmixed, k_matrix, v_library, threads = 1L) {
-    .Call(`_AutoSpectralRcpp_parallel_af_assign`, unmixed, k_matrix, v_library, threads)
-}
-
-parallel_unmix_af <- function(raw_data, af_spectra, fluor_spectra, af_assignments, n_threads = 4L) {
-    .Call(`_AutoSpectralRcpp_parallel_unmix_af`, raw_data, af_spectra, fluor_spectra, af_assignments, n_threads)
-}
-
 poisson_irls_rcpp_parallel <- function(raw_data_in, spectra, beta_init_in, maxit = 25L, tol = 1e-6, n_threads = 1L, divergence_threshold = 1e4, max_halving_steps = 20L) {
     .Call(`_AutoSpectralRcpp_poisson_irls_rcpp_parallel`, raw_data_in, spectra, beta_init_in, maxit, tol, n_threads, divergence_threshold, max_halving_steps)
+}
+
+unmix_af_fluorophores <- function(raw_data, fluor_spectra, af_spectra, n_threads = 4L) {
+    .Call(`_AutoSpectralRcpp_unmix_af_fluorophores`, raw_data, fluor_spectra, af_spectra, n_threads)
+}
+
+unmix_af_residuals <- function(raw_data, fluor_spectra, af_spectra, n_threads = 4L) {
+    .Call(`_AutoSpectralRcpp_unmix_af_residuals`, raw_data, fluor_spectra, af_spectra, n_threads)
 }
 

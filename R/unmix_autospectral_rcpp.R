@@ -125,10 +125,10 @@ unmix.autospectral.rcpp <- function(
     threads <- 1
   }
 
-  # score the AF spectra per cell to determine the initial best "AF Index"
+  # unmix AF spectra per cell to determine the best fit
   if ( use.dist0 ) {
     # use minimization of total fluorophore signal (worst case scenario) as the metric
-    af.assignments <- assign.af.fluorophores.rcpp(
+    result <- unmix_af_fluorophores(
       raw.data,
       spectra,
       af.spectra,
@@ -136,26 +136,16 @@ unmix.autospectral.rcpp <- function(
     )
   } else {
     # use minimization of/alignment to residuals as the metric
-    af.assignments <- AutoSpectral::assign.af.residuals(
+    result <- unmix_af_residuals(
       raw.data,
       spectra,
-      af.spectra
+      af.spectra,
+      threads
     )
   }
 
-  if ( verbose ) message( "Unmixing autofluorescence" )
-
-  # unmix using C++ with parallelization
-  result <- parallel_unmix_af(
-    raw_data = raw.data,
-    af_spectra = af.spectra,
-    fluor_spectra = spectra,
-    af_assignments = af.assignments,
-    n_threads = threads
-  )
-
   # add AF assignments
-  unmixed <- cbind( result$unmixed, af.assignments )
+  unmixed <- cbind( result$unmixed, result$af.idx )
   colnames( unmixed ) <- c( fluors.af, "AF Index" )
 
   # if we don't have spectral variants and aren't refining AF, stop here
