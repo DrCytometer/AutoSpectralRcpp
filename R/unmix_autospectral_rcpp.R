@@ -161,6 +161,14 @@ unmix.autospectral.rcpp <- function(
     }
   }
 
+  # tell the user what's been selected
+  if ( verbose ) {
+    if ( optimize )
+      message( "Per-cell autofluorescence extraction and fluorophore optimization will be performed." )
+    else
+      message( "Only per-cell autofluorescence extraction will be performed." )
+  }
+
   # set variant count based on speed
   if ( is.null( n.variants ) ) {
     n.variants <- switch( match.arg( speed ), "fast" = 1L, "medium" = 3L, "slow" = 10L )
