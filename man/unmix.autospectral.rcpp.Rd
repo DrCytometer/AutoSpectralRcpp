@@ -8,15 +8,13 @@ unmix.autospectral.rcpp(
   raw.data,
   spectra,
   af.spectra,
-  asp,
   spectra.variants = NULL,
   use.dist0 = TRUE,
   verbose = TRUE,
   speed = c("fast", "medium", "slow"),
   parallel = TRUE,
-  threads = NULL,
-  n.variants = NULL,
-  ...
+  threads = 1L,
+  n.variants = NULL
 )
 }
 \arguments{
@@ -30,8 +28,6 @@ and 1, with fluorophores in rows and detectors in columns.}
 \item{af.spectra}{Spectral signatures of autofluorescences, normalized
 between 0 and 1, with fluorophores in rows and detectors in columns. Prepare
 using \code{get.af.spectra}.}
-
-\item{asp}{The AutoSpectral parameter list.}
 
 \item{spectra.variants}{Named list (names are fluorophores) carrying matrices
 of spectral signature variations for each fluorophore. Prepare using
@@ -54,19 +50,13 @@ for \code{medium}, three will be tested and for \code{slow}, 10 variants will be
 \item{parallel}{Logical, default is \code{TRUE}. Always use parallel processing in
 the C++ version for faster results.}
 
-\item{threads}{Numeric, default is \code{NULL}, in which case \code{asp$worker.process.n}
-will be used. \code{asp$worker.process.n} is set by default to be one less than the
-available cores on the machine. Multi-threading is only used if \code{parallel} is
-\code{TRUE}.}
+\item{threads}{Numeric, default is \code{1}.}
 
 \item{n.variants}{Number of variants to test per cell. Allows explicit control
 over the number used, as opposed to \code{speed}, which selects from pre-defined
 choices. Providing a numeric value to \code{n.variants} will override \code{speed},
 allowing up to \code{n.variants} (or the max available) variants to be tested. The
 default is \code{NULL}, in which case \code{n.variants} will be ignored.}
-
-\item{...}{Ignored. Previously used for deprecated arguments such as
-\code{calculate.error}.}
 }
 \value{
 Unmixed data with cells in rows and fluorophores in columns.

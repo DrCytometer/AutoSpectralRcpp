@@ -79,12 +79,36 @@ BEGIN_RCPP
     return rcpp_result_gen;
 END_RCPP
 }
+// unmix_autospectral_pipeline_cpp
+arma::mat unmix_autospectral_pipeline_cpp(arma::mat raw_data_in, const arma::mat& spectra, const arma::mat& af_spectra, const CharacterVector& fluor_names, const CharacterVector& optimize_fluors, const arma::vec& pos_thresholds, const List& variants, const List& delta_list, const List& delta_norms, int k_opt, int n_threads, bool optimize, bool use_dist0);
+RcppExport SEXP _AutoSpectralRcpp_unmix_autospectral_pipeline_cpp(SEXP raw_data_inSEXP, SEXP spectraSEXP, SEXP af_spectraSEXP, SEXP fluor_namesSEXP, SEXP optimize_fluorsSEXP, SEXP pos_thresholdsSEXP, SEXP variantsSEXP, SEXP delta_listSEXP, SEXP delta_normsSEXP, SEXP k_optSEXP, SEXP n_threadsSEXP, SEXP optimizeSEXP, SEXP use_dist0SEXP) {
+BEGIN_RCPP
+    Rcpp::RObject rcpp_result_gen;
+    Rcpp::RNGScope rcpp_rngScope_gen;
+    Rcpp::traits::input_parameter< arma::mat >::type raw_data_in(raw_data_inSEXP);
+    Rcpp::traits::input_parameter< const arma::mat& >::type spectra(spectraSEXP);
+    Rcpp::traits::input_parameter< const arma::mat& >::type af_spectra(af_spectraSEXP);
+    Rcpp::traits::input_parameter< const CharacterVector& >::type fluor_names(fluor_namesSEXP);
+    Rcpp::traits::input_parameter< const CharacterVector& >::type optimize_fluors(optimize_fluorsSEXP);
+    Rcpp::traits::input_parameter< const arma::vec& >::type pos_thresholds(pos_thresholdsSEXP);
+    Rcpp::traits::input_parameter< const List& >::type variants(variantsSEXP);
+    Rcpp::traits::input_parameter< const List& >::type delta_list(delta_listSEXP);
+    Rcpp::traits::input_parameter< const List& >::type delta_norms(delta_normsSEXP);
+    Rcpp::traits::input_parameter< int >::type k_opt(k_optSEXP);
+    Rcpp::traits::input_parameter< int >::type n_threads(n_threadsSEXP);
+    Rcpp::traits::input_parameter< bool >::type optimize(optimizeSEXP);
+    Rcpp::traits::input_parameter< bool >::type use_dist0(use_dist0SEXP);
+    rcpp_result_gen = Rcpp::wrap(unmix_autospectral_pipeline_cpp(raw_data_in, spectra, af_spectra, fluor_names, optimize_fluors, pos_thresholds, variants, delta_list, delta_norms, k_opt, n_threads, optimize, use_dist0));
+    return rcpp_result_gen;
+END_RCPP
+}
 
 static const R_CallMethodDef CallEntries[] = {
     {"_AutoSpectralRcpp_optimize_unmix", (DL_FUNC) &_AutoSpectralRcpp_optimize_unmix, 12},
     {"_AutoSpectralRcpp_poisson_irls_rcpp_parallel", (DL_FUNC) &_AutoSpectralRcpp_poisson_irls_rcpp_parallel, 8},
     {"_AutoSpectralRcpp_unmix_af_fluorophores", (DL_FUNC) &_AutoSpectralRcpp_unmix_af_fluorophores, 4},
     {"_AutoSpectralRcpp_unmix_af_residuals", (DL_FUNC) &_AutoSpectralRcpp_unmix_af_residuals, 4},
+    {"_AutoSpectralRcpp_unmix_autospectral_pipeline_cpp", (DL_FUNC) &_AutoSpectralRcpp_unmix_autospectral_pipeline_cpp, 13},
     {NULL, NULL, 0}
 };
 

@@ -17,3 +17,7 @@ unmix_af_residuals <- function(raw_data, fluor_spectra, af_spectra, n_threads = 
     .Call(`_AutoSpectralRcpp_unmix_af_residuals`, raw_data, fluor_spectra, af_spectra, n_threads)
 }
 
+unmix_autospectral_pipeline_cpp <- function(raw_data_in, spectra, af_spectra, fluor_names, optimize_fluors, pos_thresholds, variants, delta_list, delta_norms, k_opt = 1L, n_threads = 1L, optimize = TRUE, use_dist0 = TRUE) {
+    .Call(`_AutoSpectralRcpp_unmix_autospectral_pipeline_cpp`, raw_data_in, spectra, af_spectra, fluor_names, optimize_fluors, pos_thresholds, variants, delta_list, delta_norms, k_opt, n_threads, optimize, use_dist0)
+}
+
