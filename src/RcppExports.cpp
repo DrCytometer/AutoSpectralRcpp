@@ -11,15 +11,15 @@ Rcpp::Rostream<true>&  Rcpp::Rcout = Rcpp::Rcpp_cout_get();
 Rcpp::Rostream<false>& Rcpp::Rcerr = Rcpp::Rcpp_cerr_get();
 #endif
 
-// find_local_maxima_cpp
-LogicalMatrix find_local_maxima_cpp(NumericMatrix z, int neigh_size);
-RcppExport SEXP _AutoSpectralRcpp_find_local_maxima_cpp(SEXP zSEXP, SEXP neigh_sizeSEXP) {
+// find_local_maxima
+LogicalMatrix find_local_maxima(NumericMatrix z, int neigh_size);
+RcppExport SEXP _AutoSpectralRcpp_find_local_maxima(SEXP zSEXP, SEXP neigh_sizeSEXP) {
 BEGIN_RCPP
     Rcpp::RObject rcpp_result_gen;
     Rcpp::RNGScope rcpp_rngScope_gen;
     Rcpp::traits::input_parameter< NumericMatrix >::type z(zSEXP);
     Rcpp::traits::input_parameter< int >::type neigh_size(neigh_sizeSEXP);
-    rcpp_result_gen = Rcpp::wrap(find_local_maxima_cpp(z, neigh_size));
+    rcpp_result_gen = Rcpp::wrap(find_local_maxima(z, neigh_size));
     return rcpp_result_gen;
 END_RCPP
 }
@@ -116,7 +116,7 @@ END_RCPP
 }
 
 static const R_CallMethodDef CallEntries[] = {
-    {"_AutoSpectralRcpp_find_local_maxima_cpp", (DL_FUNC) &_AutoSpectralRcpp_find_local_maxima_cpp, 2},
+    {"_AutoSpectralRcpp_find_local_maxima", (DL_FUNC) &_AutoSpectralRcpp_find_local_maxima, 2},
     {"_AutoSpectralRcpp_optimize_unmix", (DL_FUNC) &_AutoSpectralRcpp_optimize_unmix, 12},
     {"_AutoSpectralRcpp_poisson_irls_rcpp_parallel", (DL_FUNC) &_AutoSpectralRcpp_poisson_irls_rcpp_parallel, 8},
     {"_AutoSpectralRcpp_unmix_af_fluorophores", (DL_FUNC) &_AutoSpectralRcpp_unmix_af_fluorophores, 4},
