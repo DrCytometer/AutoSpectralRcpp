@@ -11,6 +11,18 @@ Rcpp::Rostream<true>&  Rcpp::Rcout = Rcpp::Rcpp_cout_get();
 Rcpp::Rostream<false>& Rcpp::Rcerr = Rcpp::Rcpp_cerr_get();
 #endif
 
+// find_local_maxima_cpp
+LogicalMatrix find_local_maxima_cpp(NumericMatrix z, int neigh_size);
+RcppExport SEXP _AutoSpectralRcpp_find_local_maxima_cpp(SEXP zSEXP, SEXP neigh_sizeSEXP) {
+BEGIN_RCPP
+    Rcpp::RObject rcpp_result_gen;
+    Rcpp::RNGScope rcpp_rngScope_gen;
+    Rcpp::traits::input_parameter< NumericMatrix >::type z(zSEXP);
+    Rcpp::traits::input_parameter< int >::type neigh_size(neigh_sizeSEXP);
+    rcpp_result_gen = Rcpp::wrap(find_local_maxima_cpp(z, neigh_size));
+    return rcpp_result_gen;
+END_RCPP
+}
 // optimize_unmix
 arma::mat optimize_unmix(const arma::mat& raw_data, const arma::mat& unmixed_init, const arma::mat& base_spectra, const arma::vec& pos_thresholds, CharacterVector fluor_names, CharacterVector optimize_fluors, CharacterVector all_fluorophores, List variants, List delta_list, List delta_norms, int k, int nthreads);
 RcppExport SEXP _AutoSpectralRcpp_optimize_unmix(SEXP raw_dataSEXP, SEXP unmixed_initSEXP, SEXP base_spectraSEXP, SEXP pos_thresholdsSEXP, SEXP fluor_namesSEXP, SEXP optimize_fluorsSEXP, SEXP all_fluorophoresSEXP, SEXP variantsSEXP, SEXP delta_listSEXP, SEXP delta_normsSEXP, SEXP kSEXP, SEXP nthreadsSEXP) {
@@ -104,6 +116,7 @@ END_RCPP
 }
 
 static const R_CallMethodDef CallEntries[] = {
+    {"_AutoSpectralRcpp_find_local_maxima_cpp", (DL_FUNC) &_AutoSpectralRcpp_find_local_maxima_cpp, 2},
     {"_AutoSpectralRcpp_optimize_unmix", (DL_FUNC) &_AutoSpectralRcpp_optimize_unmix, 12},
     {"_AutoSpectralRcpp_poisson_irls_rcpp_parallel", (DL_FUNC) &_AutoSpectralRcpp_poisson_irls_rcpp_parallel, 8},
     {"_AutoSpectralRcpp_unmix_af_fluorophores", (DL_FUNC) &_AutoSpectralRcpp_unmix_af_fluorophores, 4},
