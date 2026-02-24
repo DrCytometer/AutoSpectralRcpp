@@ -11,6 +11,22 @@ Rcpp::Rostream<true>&  Rcpp::Rcout = Rcpp::Rcpp_cout_get();
 Rcpp::Rostream<false>& Rcpp::Rcerr = Rcpp::Rcpp_cerr_get();
 #endif
 
+// fast_kde2d_cpp
+List fast_kde2d_cpp(NumericVector x, NumericVector y, int n, NumericVector h, NumericVector x_limits, NumericVector y_limits);
+RcppExport SEXP _AutoSpectralRcpp_fast_kde2d_cpp(SEXP xSEXP, SEXP ySEXP, SEXP nSEXP, SEXP hSEXP, SEXP x_limitsSEXP, SEXP y_limitsSEXP) {
+BEGIN_RCPP
+    Rcpp::RObject rcpp_result_gen;
+    Rcpp::RNGScope rcpp_rngScope_gen;
+    Rcpp::traits::input_parameter< NumericVector >::type x(xSEXP);
+    Rcpp::traits::input_parameter< NumericVector >::type y(ySEXP);
+    Rcpp::traits::input_parameter< int >::type n(nSEXP);
+    Rcpp::traits::input_parameter< NumericVector >::type h(hSEXP);
+    Rcpp::traits::input_parameter< NumericVector >::type x_limits(x_limitsSEXP);
+    Rcpp::traits::input_parameter< NumericVector >::type y_limits(y_limitsSEXP);
+    rcpp_result_gen = Rcpp::wrap(fast_kde2d_cpp(x, y, n, h, x_limits, y_limits));
+    return rcpp_result_gen;
+END_RCPP
+}
 // find_local_maxima
 LogicalMatrix find_local_maxima(NumericMatrix z, int neigh_size);
 RcppExport SEXP _AutoSpectralRcpp_find_local_maxima(SEXP zSEXP, SEXP neigh_sizeSEXP) {
@@ -116,6 +132,7 @@ END_RCPP
 }
 
 static const R_CallMethodDef CallEntries[] = {
+    {"_AutoSpectralRcpp_fast_kde2d_cpp", (DL_FUNC) &_AutoSpectralRcpp_fast_kde2d_cpp, 6},
     {"_AutoSpectralRcpp_find_local_maxima", (DL_FUNC) &_AutoSpectralRcpp_find_local_maxima, 2},
     {"_AutoSpectralRcpp_optimize_unmix", (DL_FUNC) &_AutoSpectralRcpp_optimize_unmix, 12},
     {"_AutoSpectralRcpp_poisson_irls_rcpp_parallel", (DL_FUNC) &_AutoSpectralRcpp_poisson_irls_rcpp_parallel, 8},

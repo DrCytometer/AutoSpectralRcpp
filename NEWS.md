@@ -1,3 +1,9 @@
+# AutoSpectralRcpp 1.0.5 (2026-02-24)
+
+## New features
+- Fast kernel density estimation for gating and plotting in AutoSpectral.
+
+
 # AutoSpectralRcpp 1.0.0 (2026-02-10)
 
 ## New features
