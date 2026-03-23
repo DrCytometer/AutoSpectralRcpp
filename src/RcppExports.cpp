@@ -11,6 +11,20 @@ Rcpp::Rostream<true>&  Rcpp::Rcout = Rcpp::Rcpp_cout_get();
 Rcpp::Rostream<false>& Rcpp::Rcerr = Rcpp::Rcpp_cerr_get();
 #endif
 
+// assign_af_fluor
+Rcpp::IntegerVector assign_af_fluor(const arma::mat& raw_data, const arma::mat& spectra, const arma::mat& af_spectra, int n_threads);
+RcppExport SEXP _AutoSpectralRcpp_assign_af_fluor(SEXP raw_dataSEXP, SEXP spectraSEXP, SEXP af_spectraSEXP, SEXP n_threadsSEXP) {
+BEGIN_RCPP
+    Rcpp::RObject rcpp_result_gen;
+    Rcpp::RNGScope rcpp_rngScope_gen;
+    Rcpp::traits::input_parameter< const arma::mat& >::type raw_data(raw_dataSEXP);
+    Rcpp::traits::input_parameter< const arma::mat& >::type spectra(spectraSEXP);
+    Rcpp::traits::input_parameter< const arma::mat& >::type af_spectra(af_spectraSEXP);
+    Rcpp::traits::input_parameter< int >::type n_threads(n_threadsSEXP);
+    rcpp_result_gen = Rcpp::wrap(assign_af_fluor(raw_data, spectra, af_spectra, n_threads));
+    return rcpp_result_gen;
+END_RCPP
+}
 // fast_kde2d_cpp
 List fast_kde2d_cpp(NumericVector x, NumericVector y, int n, NumericVector h, NumericVector x_limits, NumericVector y_limits);
 RcppExport SEXP _AutoSpectralRcpp_fast_kde2d_cpp(SEXP xSEXP, SEXP ySEXP, SEXP nSEXP, SEXP hSEXP, SEXP x_limitsSEXP, SEXP y_limitsSEXP) {
@@ -132,6 +146,7 @@ END_RCPP
 }
 
 static const R_CallMethodDef CallEntries[] = {
+    {"_AutoSpectralRcpp_assign_af_fluor", (DL_FUNC) &_AutoSpectralRcpp_assign_af_fluor, 4},
     {"_AutoSpectralRcpp_fast_kde2d_cpp", (DL_FUNC) &_AutoSpectralRcpp_fast_kde2d_cpp, 6},
     {"_AutoSpectralRcpp_find_local_maxima", (DL_FUNC) &_AutoSpectralRcpp_find_local_maxima, 2},
     {"_AutoSpectralRcpp_optimize_unmix", (DL_FUNC) &_AutoSpectralRcpp_optimize_unmix, 12},
