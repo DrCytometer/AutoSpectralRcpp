@@ -79,7 +79,8 @@ unmix.autospectral.rcpp <- function(
       message( "Columns reordered to match spectra." )
     } else {
       stop( "Column names in spectra and raw.data do not match perfectly;
-           cannot reorder by name alone." )
+            cannot reorder by name alone.",
+            call. = FALSE)
     }
   }
 
@@ -95,13 +96,12 @@ unmix.autospectral.rcpp <- function(
   if ( !is.null( spectra.variants ) && length( spectra.variants ) > 0 ) {
 
     if ( is.null( spectra.variants$thresholds ) )
-      stop( "Check that spectral variants have been calculated using
-          `get.spectra.variants()`",
+      stop( "Check that spectral variants have been calculated using `get.spectra.variants()`",
             call. = FALSE )
     if ( is.null( spectra.variants$variants ) )
-      stop( "Multiple fluorophore spectral variants must be provided.,
-        call. = FALSE" )
-    if ( !( length( spectra.variants$variants ) > 1 ) )
+      stop( "Multiple fluorophore spectral variants must be provided.",
+            call. = FALSE )
+    if ( !( length( spectra.variants$variants ) > 0 ) )
       stop( "Multiple fluorophore spectral variants must be provided.",
             call. = FALSE )
 
