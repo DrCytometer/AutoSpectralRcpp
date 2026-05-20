@@ -1,0 +1,38 @@
+#!/bin/sh
+
+# configure -- AutoSpectralRcpp
+#
+# Detects Homebrew libomp on macOS and writes src/Makevars from src/Makevars.in.
+# On Linux, OpenMP is handled natively by GCC and no detection is needed.
+# On Windows, configure is not run -- src/Makevars.win is used directly.
+#
+# This script never installs software. If libomp is absent on macOS, the
+# package builds without OpenMP (single-threaded C++ only). To enable OpenMP:
+#   brew install libomp
+
+OPENMP_CPPFLAGS=""
+OPENMP_LIBS=""
+
+if [ "$(uname)" = "Darwin" ]; then
+  for HOMEBREW_PREFIX in /opt/homebrew /usr/local; do
+    LIBOMP_DIR="${HOMEBREW_PREFIX}/opt/libomp"
+    if [ -d "${LIBOMP_DIR}" ]; then
+      OPENMP_CPPFLAGS="-Xpreprocessor -fopenmp -I${LIBOMP_DIR}/include"
+      OPENMP_LIBS="-L${LIBOMP_DIR}/lib -lomp"
+      echo "configure: found libomp at ${LIBOMP_DIR}, enabling OpenMP"
+      break
+    fi
+  done
+  if [ -z "${OPENMP_LIBS}" ]; then
+    echo "configure: libomp not found -- building without OpenMP (single-threaded C++ only)"
+    echo "configure: to enable OpenMP, run: brew install libomp"
+    echo "configure: note -- keep n_threads conservative to avoid conflict with Accelerate BLAS"
+  fi
+fi
+
+sed \
+  -e "s|@OPENMP_CPPFLAGS@|${OPENMP_CPPFLAGS}|g" \
+  -e "s|@OPENMP_LIBS@|${OPENMP_LIBS}|g" \
+  src/Makevars.in > src/Makevars
+
+exit 0
