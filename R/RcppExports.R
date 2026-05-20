@@ -22,6 +22,10 @@ fcs_rcpp_read_data <- function(file_path, byte_offset, n_row, n_par, swap) {
     .Call(`_AutoSpectralRcpp_fcs_rcpp_read_data`, file_path, byte_offset, n_row, n_par, swap)
 }
 
+fcs_rcpp_write_data <- function(file_path, header, text_segment, data_mat, swap) {
+    invisible(.Call(`_AutoSpectralRcpp_fcs_rcpp_write_data`, file_path, header, text_segment, data_mat, swap))
+}
+
 #' Find Local Maxima
 #'
 #' @param z Matrix of 2D density values

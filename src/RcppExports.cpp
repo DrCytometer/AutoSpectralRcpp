@@ -56,6 +56,20 @@ BEGIN_RCPP
     return rcpp_result_gen;
 END_RCPP
 }
+// fcs_rcpp_write_data
+void fcs_rcpp_write_data(const std::string& file_path, const std::string& header, const std::string& text_segment, NumericMatrix data_mat, bool swap);
+RcppExport SEXP _AutoSpectralRcpp_fcs_rcpp_write_data(SEXP file_pathSEXP, SEXP headerSEXP, SEXP text_segmentSEXP, SEXP data_matSEXP, SEXP swapSEXP) {
+BEGIN_RCPP
+    Rcpp::RNGScope rcpp_rngScope_gen;
+    Rcpp::traits::input_parameter< const std::string& >::type file_path(file_pathSEXP);
+    Rcpp::traits::input_parameter< const std::string& >::type header(headerSEXP);
+    Rcpp::traits::input_parameter< const std::string& >::type text_segment(text_segmentSEXP);
+    Rcpp::traits::input_parameter< NumericMatrix >::type data_mat(data_matSEXP);
+    Rcpp::traits::input_parameter< bool >::type swap(swapSEXP);
+    fcs_rcpp_write_data(file_path, header, text_segment, data_mat, swap);
+    return R_NilValue;
+END_RCPP
+}
 // find_local_maxima
 LogicalMatrix find_local_maxima(NumericMatrix z, int neigh_size);
 RcppExport SEXP _AutoSpectralRcpp_find_local_maxima(SEXP zSEXP, SEXP neigh_sizeSEXP) {
@@ -164,6 +178,7 @@ static const R_CallMethodDef CallEntries[] = {
     {"_AutoSpectralRcpp_assign_af_fluor", (DL_FUNC) &_AutoSpectralRcpp_assign_af_fluor, 4},
     {"_AutoSpectralRcpp_fast_kde2d_cpp", (DL_FUNC) &_AutoSpectralRcpp_fast_kde2d_cpp, 6},
     {"_AutoSpectralRcpp_fcs_rcpp_read_data", (DL_FUNC) &_AutoSpectralRcpp_fcs_rcpp_read_data, 5},
+    {"_AutoSpectralRcpp_fcs_rcpp_write_data", (DL_FUNC) &_AutoSpectralRcpp_fcs_rcpp_write_data, 5},
     {"_AutoSpectralRcpp_find_local_maxima", (DL_FUNC) &_AutoSpectralRcpp_find_local_maxima, 2},
     {"_AutoSpectralRcpp_optimize_unmix", (DL_FUNC) &_AutoSpectralRcpp_optimize_unmix, 12},
     {"_AutoSpectralRcpp_poisson_irls_rcpp_parallel", (DL_FUNC) &_AutoSpectralRcpp_poisson_irls_rcpp_parallel, 8},
