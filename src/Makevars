@@ -1,26 +1,5 @@
 CXX_STD = CXX17
 
-# Armadillo optimization, portable compiler flags
-PKG_CPPFLAGS = -I../inst/include $(OPENMP_CPPFLAGS)
-PKG_CXXFLAGS = $(CXXFLAGS) -DARMA_NO_DEBUG $(SHLIB_OPENMP_CXXFLAGS)
-
-# Libraries
-PKG_LIBS = $(LAPACK_LIBS) $(BLAS_LIBS) $(SHLIB_OPENMP_CXXFLAGS) $(OPENMP_LIBS)
-
-# Detect Homebrew libomp on macOS (Apple Silicon and Intel)
-HOMEBREW_ARM  = /opt/homebrew/opt/libomp
-HOMEBREW_INTEL = /usr/local/opt/libomp
-
-OPENMP_CPPFLAGS = $(shell \
-  if [ -d "$(HOMEBREW_ARM)" ]; then \
-    echo "-Xpreprocessor -fopenmp -I$(HOMEBREW_ARM)/include"; \
-  elif [ -d "$(HOMEBREW_INTEL)" ]; then \
-    echo "-Xpreprocessor -fopenmp -I$(HOMEBREW_INTEL)/include"; \
-  fi)
-
-OPENMP_LIBS = $(shell \
-  if [ -d "$(HOMEBREW_ARM)" ]; then \
-    echo "-L$(HOMEBREW_ARM)/lib -lomp"; \
-  elif [ -d "$(HOMEBREW_INTEL)" ]; then \
-    echo "-L$(HOMEBREW_INTEL)/lib -lomp"; \
-  fi)
+PKG_CPPFLAGS = -I../inst/include -Xpreprocessor -fopenmp -I/opt/homebrew/opt/libomp/include
+PKG_CXXFLAGS = $(CXXFLAGS) -DARMA_NO_DEBUG
+PKG_LIBS = $(LAPACK_LIBS) $(BLAS_LIBS)  -L/opt/homebrew/opt/libomp/lib -lomp

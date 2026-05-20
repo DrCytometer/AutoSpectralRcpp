@@ -12,8 +12,11 @@
 
 OPENMP_CPPFLAGS=""
 OPENMP_LIBS=""
+FLIBS_LINE=""
 
 if [ "$(uname)" = "Darwin" ]; then
+  # macOS: LAPACK/BLAS come from Accelerate; gfortran is typically absent
+  # so $(FLIBS) is omitted to avoid broken linker paths
   for HOMEBREW_PREFIX in /opt/homebrew /usr/local; do
     LIBOMP_DIR="${HOMEBREW_PREFIX}/opt/libomp"
     if [ -d "${LIBOMP_DIR}" ]; then
@@ -28,11 +31,16 @@ if [ "$(uname)" = "Darwin" ]; then
     echo "configure: to enable OpenMP, run: brew install libomp"
     echo "configure: note -- keep n_threads conservative to avoid conflict with Accelerate BLAS"
   fi
+else
+  # Linux: gfortran is expected to be present; include $(FLIBS) as normal
+  # OpenMP is handled natively by GCC via $(SHLIB_OPENMP_CXXFLAGS)
+  FLIBS_LINE='$(FLIBS)'
 fi
 
 sed \
   -e "s|@OPENMP_CPPFLAGS@|${OPENMP_CPPFLAGS}|g" \
   -e "s|@OPENMP_LIBS@|${OPENMP_LIBS}|g" \
+  -e "s|@FLIBS_LINE@|${FLIBS_LINE}|g" \
   src/Makevars.in > src/Makevars
 
 exit 0
