@@ -18,6 +18,10 @@ fast_kde2d_cpp <- function(x, y, n, h, x_limits, y_limits) {
     .Call(`_AutoSpectralRcpp_fast_kde2d_cpp`, x, y, n, h, x_limits, y_limits)
 }
 
+fcs_rcpp_read_data <- function(file_path, byte_offset, n_row, n_par, swap) {
+    .Call(`_AutoSpectralRcpp_fcs_rcpp_read_data`, file_path, byte_offset, n_row, n_par, swap)
+}
+
 #' Find Local Maxima
 #'
 #' @param z Matrix of 2D density values
