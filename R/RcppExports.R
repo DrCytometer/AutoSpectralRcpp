@@ -26,6 +26,27 @@ fcs_rcpp_write_data <- function(file_path, header, text_segment, data_mat, swap)
     invisible(.Call(`_AutoSpectralRcpp_fcs_rcpp_write_data`, file_path, header, text_segment, data_mat, swap))
 }
 
+#' Filter contaminant events by cosine similarity
+#'
+#' For each event (row) in \code{event_mat}, computes cosine similarity
+#' against every spectrum (row) in \code{spectra_mat}.  Returns a logical
+#' vector that is \code{TRUE} for events whose maximum cosine similarity to
+#' any spectrum is strictly below \code{threshold}.
+#'
+#' @param event_mat   Numeric matrix; events x detectors (the unstained
+#'   expression data, restricted to the spectral channels).
+#' @param spectra_mat Numeric matrix; fluorophores x detectors (the reference
+#'   spectra, AF rows already removed, L-inf normalised).
+#' @param threshold   Numeric scalar.  Events with max cosine similarity
+#'   \eqn{\geq} \code{threshold} are flagged as contaminants.
+#' @return A logical vector of length \code{nrow(event_mat)}.  \code{TRUE}
+#'   means the event is clean (keep); \code{FALSE} means it is a likely
+#'   contaminant (remove).
+#' @export
+filter_contaminant_events_cpp <- function(event_mat, spectra_mat, threshold) {
+    .Call(`_AutoSpectralRcpp_filter_contaminant_events_cpp`, event_mat, spectra_mat, threshold)
+}
+
 #' Find Local Maxima
 #'
 #' @param z Matrix of 2D density values

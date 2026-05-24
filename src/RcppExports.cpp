@@ -70,6 +70,19 @@ BEGIN_RCPP
     return R_NilValue;
 END_RCPP
 }
+// filter_contaminant_events_cpp
+LogicalVector filter_contaminant_events_cpp(NumericMatrix event_mat, NumericMatrix spectra_mat, double threshold);
+RcppExport SEXP _AutoSpectralRcpp_filter_contaminant_events_cpp(SEXP event_matSEXP, SEXP spectra_matSEXP, SEXP thresholdSEXP) {
+BEGIN_RCPP
+    Rcpp::RObject rcpp_result_gen;
+    Rcpp::RNGScope rcpp_rngScope_gen;
+    Rcpp::traits::input_parameter< NumericMatrix >::type event_mat(event_matSEXP);
+    Rcpp::traits::input_parameter< NumericMatrix >::type spectra_mat(spectra_matSEXP);
+    Rcpp::traits::input_parameter< double >::type threshold(thresholdSEXP);
+    rcpp_result_gen = Rcpp::wrap(filter_contaminant_events_cpp(event_mat, spectra_mat, threshold));
+    return rcpp_result_gen;
+END_RCPP
+}
 // find_local_maxima
 LogicalMatrix find_local_maxima(NumericMatrix z, int neigh_size);
 RcppExport SEXP _AutoSpectralRcpp_find_local_maxima(SEXP zSEXP, SEXP neigh_sizeSEXP) {
@@ -179,6 +192,7 @@ static const R_CallMethodDef CallEntries[] = {
     {"_AutoSpectralRcpp_fast_kde2d_cpp", (DL_FUNC) &_AutoSpectralRcpp_fast_kde2d_cpp, 6},
     {"_AutoSpectralRcpp_fcs_rcpp_read_data", (DL_FUNC) &_AutoSpectralRcpp_fcs_rcpp_read_data, 5},
     {"_AutoSpectralRcpp_fcs_rcpp_write_data", (DL_FUNC) &_AutoSpectralRcpp_fcs_rcpp_write_data, 5},
+    {"_AutoSpectralRcpp_filter_contaminant_events_cpp", (DL_FUNC) &_AutoSpectralRcpp_filter_contaminant_events_cpp, 3},
     {"_AutoSpectralRcpp_find_local_maxima", (DL_FUNC) &_AutoSpectralRcpp_find_local_maxima, 2},
     {"_AutoSpectralRcpp_optimize_unmix", (DL_FUNC) &_AutoSpectralRcpp_optimize_unmix, 12},
     {"_AutoSpectralRcpp_poisson_irls_rcpp_parallel", (DL_FUNC) &_AutoSpectralRcpp_poisson_irls_rcpp_parallel, 8},

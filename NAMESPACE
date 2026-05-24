@@ -2,6 +2,7 @@
 
 export(assign.af.fluor.fast)
 export(fast_kde2d_cpp)
+export(filter_contaminant_events_cpp)
 export(find_local_maxima)
 export(poisson_irls_rcpp_parallel)
 export(readFCS)
