@@ -25,6 +25,19 @@ BEGIN_RCPP
     return rcpp_result_gen;
 END_RCPP
 }
+// bin_matrix_cpp
+IntegerMatrix bin_matrix_cpp(NumericMatrix data, NumericVector y_breaks, int n_y);
+RcppExport SEXP _AutoSpectralRcpp_bin_matrix_cpp(SEXP dataSEXP, SEXP y_breaksSEXP, SEXP n_ySEXP) {
+BEGIN_RCPP
+    Rcpp::RObject rcpp_result_gen;
+    Rcpp::RNGScope rcpp_rngScope_gen;
+    Rcpp::traits::input_parameter< NumericMatrix >::type data(dataSEXP);
+    Rcpp::traits::input_parameter< NumericVector >::type y_breaks(y_breaksSEXP);
+    Rcpp::traits::input_parameter< int >::type n_y(n_ySEXP);
+    rcpp_result_gen = Rcpp::wrap(bin_matrix_cpp(data, y_breaks, n_y));
+    return rcpp_result_gen;
+END_RCPP
+}
 // fast_kde2d_cpp
 List fast_kde2d_cpp(NumericVector x, NumericVector y, int n, NumericVector h, NumericVector x_limits, NumericVector y_limits);
 RcppExport SEXP _AutoSpectralRcpp_fast_kde2d_cpp(SEXP xSEXP, SEXP ySEXP, SEXP nSEXP, SEXP hSEXP, SEXP x_limitsSEXP, SEXP y_limitsSEXP) {
@@ -189,6 +202,7 @@ END_RCPP
 
 static const R_CallMethodDef CallEntries[] = {
     {"_AutoSpectralRcpp_assign_af_fluor", (DL_FUNC) &_AutoSpectralRcpp_assign_af_fluor, 4},
+    {"_AutoSpectralRcpp_bin_matrix_cpp", (DL_FUNC) &_AutoSpectralRcpp_bin_matrix_cpp, 3},
     {"_AutoSpectralRcpp_fast_kde2d_cpp", (DL_FUNC) &_AutoSpectralRcpp_fast_kde2d_cpp, 6},
     {"_AutoSpectralRcpp_fcs_rcpp_read_data", (DL_FUNC) &_AutoSpectralRcpp_fcs_rcpp_read_data, 5},
     {"_AutoSpectralRcpp_fcs_rcpp_write_data", (DL_FUNC) &_AutoSpectralRcpp_fcs_rcpp_write_data, 5},

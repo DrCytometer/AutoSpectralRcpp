@@ -5,6 +5,26 @@ assign_af_fluor <- function(raw_data, spectra, af_spectra, n_threads = 4L) {
     .Call(`_AutoSpectralRcpp_assign_af_fluor`, raw_data, spectra, af_spectra, n_threads)
 }
 
+#' Bin a spectral expression matrix into a 2D count matrix
+#'
+#' Takes an n_events x n_channels matrix of already biexp-transformed values
+#' and bins them into an n_y x n_x count matrix. Loops column-major to match
+#' R's memory layout and avoid cache misses.
+#'
+#' @param data NumericMatrix of biexp-transformed expression values,
+#'   n_events rows x n_channels (n_x) columns.
+#' @param y_breaks NumericVector of length n_y + 1, uniformly spaced break
+#'   points spanning the y-axis range. Produced by seq(y_min, y_max,
+#'   length.out = n_y + 1).
+#' @param n_y Integer number of y bins.
+#'
+#' @return IntegerMatrix of counts, n_y rows x n_x columns.
+#'
+#' @export
+bin_matrix_cpp <- function(data, y_breaks, n_y) {
+    .Call(`_AutoSpectralRcpp_bin_matrix_cpp`, data, y_breaks, n_y)
+}
+
 #' Fast Kernel Density Estimation in 2D
 #'
 #' @param x Numeric vector of x-values (typically FSC-A)
