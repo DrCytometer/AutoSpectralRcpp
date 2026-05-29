@@ -44,8 +44,13 @@ writeFCS <- function(mat, keys, file.name, output.dir) {
   keys[["$BYTEORD"]]  <- "1,2,3,4"
   keys[["$NEXTDATA"]] <- "0"
 
-  keys[["$BEGINDATA"]] <- "0"   # placeholder, resolved below
-  keys[["$ENDDATA"]]   <- "0"
+  # Segment offsets: placeholders updated after layout is calculated.
+  keys[['$BEGINDATA']]     <- "0"
+  keys[['$ENDDATA']]       <- "0"
+  keys[['$BEGINSTEXT']]    <- "0"
+  keys[['$ENDSTEXT']]      <- "0"
+  keys[['$BEGINANALYSIS']] <- "0"
+  keys[['$ENDANALYSIS']]   <- "0"
 
   # --- 2. Build initial TEXT segment ----------------------------------------
   text.segment <- paste0(
