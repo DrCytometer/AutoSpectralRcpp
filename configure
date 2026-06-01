@@ -15,8 +15,6 @@ OPENMP_LIBS=""
 FLIBS_LINE=""
 
 if [ "$(uname)" = "Darwin" ]; then
-  # macOS: LAPACK/BLAS come from Accelerate; gfortran is typically absent
-  # so $(FLIBS) is omitted to avoid broken linker paths
   for HOMEBREW_PREFIX in /opt/homebrew /usr/local; do
     LIBOMP_DIR="${HOMEBREW_PREFIX}/opt/libomp"
     if [ -d "${LIBOMP_DIR}" ]; then
@@ -27,8 +25,16 @@ if [ "$(uname)" = "Darwin" ]; then
     fi
   done
   if [ -z "${OPENMP_LIBS}" ]; then
-    echo "configure: libomp not found -- building without OpenMP (single-threaded C++ only)"
-    echo "configure: to enable OpenMP, run: brew install libomp"
+    if [ -t 1 ]; then
+      echo "configure: libomp not found -- building without OpenMP (single-threaded C++ only)"
+      echo "configure: to enable OpenMP, run: brew install libomp"
+      echo "configure: then reinstall the package"
+    else
+      echo "configure: libomp not found and session is non-interactive -- cannot auto-install"
+      echo "configure: to enable OpenMP, open a terminal and run: brew install libomp"
+      echo "configure: then reinstall the package"
+      echo "configure: building without OpenMP (single-threaded C++ only) for now"
+    fi
     echo "configure: note -- keep n_threads conservative to avoid conflict with Accelerate BLAS"
   fi
 else
