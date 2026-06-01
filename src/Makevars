@@ -1,5 +1,4 @@
 CXX_STD = CXX17
 
-PKG_CPPFLAGS = -I../inst/include -Xpreprocessor -fopenmp -I/opt/homebrew/opt/libomp/include
-PKG_CXXFLAGS = $(CXXFLAGS) -DARMA_NO_DEBUG
+PKG_CXXFLAGS = $(CXXFLAGS) -DARMA_NO_DEBUG -Xpreprocessor -fopenmp -I/opt/homebrew/opt/libomp/include
 PKG_LIBS = $(LAPACK_LIBS) $(BLAS_LIBS)  -L/opt/homebrew/opt/libomp/lib -lomp
