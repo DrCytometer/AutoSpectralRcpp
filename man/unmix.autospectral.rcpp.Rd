@@ -14,7 +14,9 @@ unmix.autospectral.rcpp(
   speed = c("fast", "medium", "slow"),
   parallel = TRUE,
   threads = 1L,
-  n.variants = NULL
+  n.variants = NULL,
+  pipeline = c("joint", "legacy"),
+  n.passes = 2L
 )
 }
 \arguments{
@@ -57,6 +59,17 @@ over the number used, as opposed to \code{speed}, which selects from pre-defined
 choices. Providing a numeric value to \code{n.variants} will override \code{speed},
 allowing up to \code{n.variants} (or the max available) variants to be tested. The
 default is \code{NULL}, in which case \code{n.variants} will be ignored.}
+
+\item{pipeline}{Character, one of \code{"joint"} (default) or \code{"legacy"}.
+\code{"joint"} uses the new covariance-weighted joint AF + variant optimisation
+pipeline (\code{unmix_autospectral_joint_cpp} or its pure-R equivalent).
+\code{"legacy"} uses the previous sequential pipeline
+(\code{unmix_autospectral_pipeline_cpp}), which selects the AF spectrum first
+and then optimises fluorophore variants independently.}
+
+\item{n.passes}{Integer, default \code{2L}. Number of joint optimisation passes
+per cell. Only used when \code{pipeline = "joint"}. Higher values allow more
+swaps to be committed per cell at the cost of additional computation.}
 }
 \value{
 Unmixed data with cells in rows and fluorophores in columns.
