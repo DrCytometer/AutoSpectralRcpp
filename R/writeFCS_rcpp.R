@@ -31,7 +31,7 @@
 #'
 #' @export
 #'
-#' @seealso \code{\link[AutoSpectral:writeFCS]{AutoSpectral::writeFCS}}
+#' @seealso \code{AutoSpectral::writeFCS}
 
 writeFCS <- function(mat, keys, file.name, output.dir) {
 

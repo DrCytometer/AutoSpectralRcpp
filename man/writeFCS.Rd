@@ -25,5 +25,5 @@ Automatically replaces \code{AutoSpectral::writeFCS} in the
 (see \code{AutoSpectralRcpp::::.onLoad}).
 }
 \seealso{
-\code{\link[AutoSpectral:writeFCS]{AutoSpectral::writeFCS}}
+\code{AutoSpectral::writeFCS}
 }

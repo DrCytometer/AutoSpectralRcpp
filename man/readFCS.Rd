@@ -45,5 +45,5 @@ Finak G (2025). \emph{flowCore: Basic structures for flow cytometry data}.
 \doi{10.18129/B9.bioc.flowCore}
 }
 \seealso{
-\code{\link[AutoSpectral:readFCS]{AutoSpectral::readFCS}}
+\code{AutoSpectral::readFCS}
 }

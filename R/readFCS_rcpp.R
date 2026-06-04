@@ -41,7 +41,7 @@
 #'
 #' @export
 #'
-#' @seealso \code{\link[AutoSpectral:readFCS]{AutoSpectral::readFCS}}
+#' @seealso \code{AutoSpectral::readFCS}
 #'
 #' @references
 #' Granjeud, Samuel. \emph{flowCoreUtils}.
