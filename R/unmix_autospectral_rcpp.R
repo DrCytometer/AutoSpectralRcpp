@@ -222,7 +222,7 @@ unmix.autospectral.rcpp <- function(
   # call C++ pipeline
   # returns matrix [Fluors | AF_val | AF_idx]
   if ( pipeline == "joint" ) {
-    unmix_autospectral_joint_cpp(
+    unmixed <- unmix_autospectral_joint_cpp(
       raw_data_in   = raw.data,
       spectra       = as.matrix( spectra ),
       af_spectra    = as.matrix( af.spectra ),
