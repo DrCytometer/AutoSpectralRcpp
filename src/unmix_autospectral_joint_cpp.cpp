@@ -38,15 +38,17 @@ struct FluorPrecomp {
 
 // [[Rcpp::export]]
 arma::mat unmix_autospectral_joint_cpp(
-    arma::mat              raw_data_in,      // N x D (transposed internally)
-    const arma::mat&       spectra,          // F x D
-    const arma::mat&       af_spectra,       // n_af x D
+    arma::mat              raw_data_in,
+    const arma::mat&       spectra,
+    const arma::mat&       af_spectra,
     const CharacterVector& fluor_names,
-    const arma::vec&       pos_thresholds,   // F
-    const List&            variants_list,    // named: fluor -> n_variants x D (may be empty)
-    const List&            delta_list,       // named: fluor -> observations x D (may be empty)
-    int                    n_passes   = 2,
-    int                    n_threads  = 1
+    const arma::vec&       pos_thresholds,
+    const List&            variants_list,
+    const List&            delta_list,
+    int                    n_passes    = 2,
+    int                    n_threads   = 1,
+    bool                   cell_weight = false,
+    double                 noise_floor = 1.0
 ) {
   mat raw_data = raw_data_in.t();   // D x N
   const uword N   = raw_data.n_cols;
@@ -160,7 +162,9 @@ arma::mat unmix_autospectral_joint_cpp(
   vec   resid(D);
   vec   fluor_unmixed(F);
   mat   cell_S(F + 1, D);
+  mat   cell_S_w(F + 1, D);   // sqrt_w-scaled copy used for WLS
   vec   unmixed_full(F + 1);
+  vec   sqrt_w(D);             // per-cell detector weights (or ones)
   std::vector<int> best_v(n_opt, -1);
 
   struct Candidate { double score; int f_opt; uword v; };
@@ -206,9 +210,22 @@ arma::mat unmix_autospectral_joint_cpp(
     cell_S.rows(0, F - 1) = spectra;
     cell_S.row(F)          = af_spectra.row(best_j_af);
 
-    unmixed_full  = solve(cell_S.t(), cell_raw, solve_opts::fast);
+    // Per-cell detector weights derived from the unweighted reconstruction.
+    // Computed once here and held fixed for all subsequent solves this cell.
+    if (cell_weight) {
+      const vec coeff_init = solve(cell_S.t(), cell_raw, solve_opts::fast);  // F+1
+      const vec y_hat      = cell_S.t() * coeff_init;                        // D
+      for (uword d = 0; d < D; ++d)
+        sqrt_w[d] = 1.0 / std::sqrt(std::max(std::abs(y_hat[d]), noise_floor));
+    } else {
+      sqrt_w.ones();
+    }
+
+    // WLS via sqrt_w row-scaling: solve (cell_S % sqrt_w.t())^T x = cell_raw % sqrt_w
+    cell_S_w  = cell_S.each_row() % sqrt_w.t();
+    unmixed_full  = solve(cell_S_w.t(), cell_raw % sqrt_w, solve_opts::fast);
     fluor_unmixed = unmixed_full.head(F);
-    resid         = cell_raw - cell_S.t() * unmixed_full;
+    resid         = (cell_raw - cell_S.t() * unmixed_full) % sqrt_w;  // weighted residual
 
     // =====================================================================
     // B2. AF-ONLY EARLY RETURN
@@ -336,9 +353,10 @@ arma::mat unmix_autospectral_joint_cpp(
         cell_S.row(precomp[opt_i].master_idx) = precomp[opt_i].v_mats.row(v);
       }
 
-      unmixed_full  = solve(cell_S.t(), cell_raw, solve_opts::fast);
+      cell_S_w      = cell_S.each_row() % sqrt_w.t();
+      unmixed_full  = solve(cell_S_w.t(), cell_raw % sqrt_w, solve_opts::fast);
       fluor_unmixed = unmixed_full.head(F);
-      resid         = cell_raw - cell_S.t() * unmixed_full;
+      resid         = (cell_raw - cell_S.t() * unmixed_full) % sqrt_w;
 
       if (norm(resid) < 1e-8 * norm(cell_raw)) break;
     }

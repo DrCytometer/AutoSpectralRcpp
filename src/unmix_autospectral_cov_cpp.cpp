@@ -31,8 +31,10 @@ arma::mat unmix_autospectral_cov_cpp(
     const List&            variants,
     const List&            delta_list,
     const List&            delta_norms,
-    int                    k_opt     = 1,
-    int                    n_threads = 1
+    int                    k_opt       = 1,
+    int                    n_threads   = 1,
+    bool                   cell_weight = false,
+    double                 noise_floor = 1.0
 ) {
   mat raw_data = raw_data_in.t();          // D x N
   const uword n_cells  = raw_data.n_cols;
@@ -144,70 +146,73 @@ arma::mat unmix_autospectral_cov_cpp(
   // -------------------------------------------------------------------------
   // 4.  Per-cell pipeline
   // -------------------------------------------------------------------------
-#pragma omp parallel for schedule(dynamic, 64)
+#pragma omp parallel
+{
+  // Thread-local buffers — each thread gets its own copy
+  const uword D = spectra.n_cols;
+
+  vec    cell_raw_vec(D);
+  rowvec cell_raw(D);
+  vec    init_f(n_fluors);
+  rowvec base_resid_vec(D);
+  vec    adj_f(n_fluors);
+  vec    adj_resid(D);
+  rowvec af_row(D);
+  mat    cell_spectra_final(n_fluors + 1, D);
+  mat    cell_spectra_w(n_fluors + 1, D);     // sqrt_w-scaled copy for WLS
+  rowvec cell_raw_w(D);                        // sqrt_w-scaled raw data
+  vec    sqrt_w(D);                            // per-cell detector weights
+  rowvec unmixed_full(n_fluors + 1);
+  rowvec unmixed_curr(n_fluors);
+  rowvec resid(D);
+  vec    cell_corrected_vec(D);
+  rowvec curr_spectrum(D);
+  rowvec d_j_raw(D);
+  rowvec unmixed_other;
+  vec    adj_other;
+  vec    scores;
+  rowvec t_full(n_fluors + 1);
+  rowvec t_resid(D);
+  rowvec t_other;
+  mat    trial_spectra(n_fluors + 1, D);
+  mat    trial_spectra_w(n_fluors + 1, D);
+  rowvec final_full(n_fluors + 1);
+
+  std::vector<std::pair<double, size_t>> fluor_order;
+  std::vector<uword>                     top_k;
+
+#pragma omp for schedule(dynamic, 64)
   for (uword i = 0; i < n_cells; ++i) {
 
-    // -- Thread-local scratch buffers --
-    // Declared static thread_local so they are allocated once per thread and
-    // reused across cells (resize/set_size is cheap; no heap traffic per cell).
-    alignas(64) static thread_local vec    tl_cell_raw_vec;
-    alignas(64) static thread_local rowvec tl_cell_raw;
-    alignas(64) static thread_local vec    tl_init_f;
-    alignas(64) static thread_local rowvec tl_base_resid_vec;
-    alignas(64) static thread_local vec    tl_adj_f;
-    alignas(64) static thread_local vec    tl_adj_resid;
-    alignas(64) static thread_local rowvec tl_af_row;
-    alignas(64) static thread_local mat    tl_cell_spectra_final;
-    alignas(64) static thread_local rowvec tl_unmixed_full;
-    alignas(64) static thread_local rowvec tl_unmixed_curr;
-    alignas(64) static thread_local rowvec tl_resid;
-    alignas(64) static thread_local vec    tl_cell_corrected_vec;
-    alignas(64) static thread_local rowvec tl_curr_spectrum;
-    alignas(64) static thread_local rowvec tl_d_j_raw;
-    alignas(64) static thread_local rowvec tl_unmixed_other;
-    alignas(64) static thread_local vec    tl_adj_other;
-    alignas(64) static thread_local vec    tl_scores;
-    alignas(64) static thread_local rowvec tl_t_full;
-    alignas(64) static thread_local rowvec tl_t_resid;
-    alignas(64) static thread_local rowvec tl_t_other;
-    alignas(64) static thread_local mat    tl_trial_spectra;
-    alignas(64) static thread_local rowvec tl_final_full;
-
-    // thread_local index / order containers
-    static thread_local std::vector<std::pair<double, size_t>> tl_fluor_order;
-    static thread_local std::vector<uword>                     tl_top_k;
-
-    tl_fluor_order.clear();
+    fluor_order.clear();
 
     // -- Load cell --
-    tl_cell_raw_vec = raw_data.col(i);            // D
-    tl_cell_raw     = tl_cell_raw_vec.t();        // 1 x D
+    cell_raw_vec = raw_data.col(i);            // D
+    cell_raw     = cell_raw_vec.t();           // 1 x D
 
-    // -- A. AF selection via covariance-propagated composite score --
-    tl_init_f = P * tl_cell_raw_vec;              // F
+    // -- A. AF selection (unweighted — weights not yet available) --
+    init_f = P * cell_raw_vec;                 // F
 
-    // Baseline errors for normalisation
-    tl_base_resid_vec.set_size(tl_cell_raw.n_elem);
-    tl_base_resid_vec = tl_cell_raw - (tl_init_f.t() * spectra);  // 1 x D
+    base_resid_vec = cell_raw - (init_f.t() * spectra);  // 1 x D
 
-    double base_e_fluor_af = dot(w_af, abs(tl_init_f)) + 1e-6;
-    double base_e_resid_af = std::sqrt(dot(tl_base_resid_vec, tl_base_resid_vec)) + 1e-6;
+    double base_e_fluor_af = dot(w_af, abs(init_f)) + 1e-6;
+    double base_e_resid_af = std::sqrt(dot(base_resid_vec, base_resid_vec)) + 1e-6;
 
     double best_score_af = datum::inf;
     uword  best_idx_af   = 0;
 
-    tl_adj_f.set_size(n_fluors);
-    tl_adj_resid.set_size(tl_cell_raw_vec.n_elem);
+    adj_f.set_size(n_fluors);
+    adj_resid.set_size(D);
 
     for (uword j = 0; j < n_af; ++j) {
-      double k_j = dot(tl_cell_raw_vec, r_lib_af.col(j)) / r_dots_af[j];
+      double k_j = dot(cell_raw_vec, r_lib_af.col(j)) / r_dots_af[j];
       if (k_j < 0.0) k_j = 0.0;
 
-      tl_adj_f    = tl_init_f - k_j * v_lib_af.col(j);
-      tl_adj_resid = tl_base_resid_vec.t() - k_j * r_lib_af.col(j);
+      adj_f     = init_f - k_j * v_lib_af.col(j);
+      adj_resid = base_resid_vec.t() - k_j * r_lib_af.col(j);
 
-      double e_fluor_j = dot(w_af, abs(tl_adj_f));
-      double e_resid_j = std::sqrt(dot(tl_adj_resid, tl_adj_resid));
+      double e_fluor_j = dot(w_af, abs(adj_f));
+      double e_resid_j = std::sqrt(dot(adj_resid, adj_resid));
 
       double score_j = (e_resid_j / base_e_resid_af) * (e_fluor_j / base_e_fluor_af);
 
@@ -217,21 +222,35 @@ arma::mat unmix_autospectral_cov_cpp(
       }
     }
 
-    // -- B. Fluorophore variant optimisation --
+    // -- B. Build AF-augmented spectra matrix [F+1 x D] --
+    af_row = af_spectra.row(best_idx_af);
+    cell_spectra_final.rows(0, n_fluors - 1) = spectra;
+    cell_spectra_final.row(n_fluors)         = af_row;
 
-    // Build AF-augmented spectra matrix [F+1 x D] in thread-local scratch.
-    // AF row is last; its coefficient is the AF intensity.
-    tl_af_row = af_spectra.row(best_idx_af);                      // 1 x D
-    tl_cell_spectra_final.set_size(n_fluors + 1, spectra.n_cols);
-    tl_cell_spectra_final.rows(0, n_fluors - 1) = spectra;
-    tl_cell_spectra_final.row(n_fluors)         = tl_af_row;
+    // Per-cell detector weights derived from the unweighted reconstruction.
+    // Ŷ = cell_spectra_final^T · (P_aug · cell_raw_vec), approximated cheaply
+    // as cell_spectra_final^T · init_f_aug where the AF coefficient comes from
+    // a rank-1 projection.  We use the full initial OLS solve for correctness.
+    if (cell_weight) {
+      const vec coeff_init = solve(cell_spectra_final.t(), cell_raw_vec,
+                                   solve_opts::fast);               // F+1
+      const vec y_hat      = cell_spectra_final.t() * coeff_init;  // D
+      for (uword d = 0; d < D; ++d)
+        sqrt_w[d] = 1.0 / std::sqrt(std::max(std::abs(y_hat[d]), noise_floor));
+    } else {
+      sqrt_w.ones();
+    }
 
-    // Initial solve against cell_raw, AF included
-    tl_unmixed_full = solve(tl_cell_spectra_final.t(), tl_cell_raw_vec,
-                            solve_opts::fast).t();                 // 1 x (F+1)
-    tl_unmixed_curr = tl_unmixed_full.head(n_fluors);
-    double af_intensity = tl_unmixed_full(n_fluors);
-    tl_resid = tl_cell_raw - (tl_unmixed_full * tl_cell_spectra_final); // 1 x D
+    cell_spectra_w = cell_spectra_final.each_row() % sqrt_w.t();
+    cell_raw_w     = cell_raw % sqrt_w.t();
+
+    // Initial WLS solve, AF included
+    unmixed_full = solve(cell_spectra_w.t(), cell_raw_w.t(),
+                         solve_opts::fast).t();                    // 1 x (F+1)
+    unmixed_curr = unmixed_full.head(n_fluors);
+    double af_intensity = unmixed_full(n_fluors);
+    // Weighted residual for scoring
+    resid = (cell_raw - (unmixed_full * cell_spectra_final)) % sqrt_w.t(); // 1 x D
 
     if (!active_f.empty()) {
 
@@ -239,123 +258,126 @@ arma::mat unmix_autospectral_cov_cpp(
       for (size_t f : active_f) {
         int midx = precomp[f].master_idx;
         if (pos_thresholds.n_elem > 0 &&
-            tl_unmixed_curr[(uword)midx] < pos_thresholds[(uword)midx]) continue;
-        tl_fluor_order.push_back({ tl_unmixed_curr[(uword)midx], f });
+            (uword)midx < pos_thresholds.n_elem &&
+            unmixed_curr[(uword)midx] < pos_thresholds[(uword)midx]) continue;
+        fluor_order.push_back({ unmixed_curr[(uword)midx], f });
       }
 
-      std::sort(tl_fluor_order.begin(), tl_fluor_order.end(),
+      std::sort(fluor_order.begin(), fluor_order.end(),
                 [](const std::pair<double,size_t>& a,
                    const std::pair<double,size_t>& b) {
                   return a.first > b.first;
                 });
 
-      double resid_norm = std::sqrt(dot(tl_resid, tl_resid));
+      double resid_norm = std::sqrt(dot(resid, resid));
 
-      for (auto const& [abundance, f] : tl_fluor_order) {
+      for (auto const& [abundance, f] : fluor_order) {
         const FluorPrecomp& pc = precomp[f];
         const uword nv = pc.n_variants;
-        const uword F1 = pc.w.n_elem;  // F-1 (excludes fluorophore f, not AF)
+        const uword F1 = pc.w.n_elem;  // F-1
 
         if (resid_norm < 1e-12) continue;
 
-        // Other-fluorophore unmixed values (excludes f, not the AF row)
-        tl_unmixed_other.set_size(F1);
+        unmixed_other.set_size(F1);
         {
           uword oi = 0;
           for (uword p = 0; p < n_fluors; ++p)
-            if ((int)p != pc.master_idx) tl_unmixed_other[oi++] = tl_unmixed_curr[p];
+            if ((int)p != pc.master_idx) unmixed_other[oi++] = unmixed_curr[p];
         }
 
-        double base_e_fluor     = dot(pc.w, abs(tl_unmixed_other.t())) + 1e-6;
+        double base_e_fluor     = dot(pc.w, abs(unmixed_other.t())) + 1e-6;
         double base_e_resid     = resid_norm + 1e-6;
         double align_scale      = abundance / base_e_resid;
         double base_e_fluor_inv = 1.0 / base_e_fluor;
 
-        // Pre-screen scoring
-        // curr_spectrum is updated after each accepted fluorophore
-        tl_curr_spectrum = tl_cell_spectra_final.row((uword)pc.master_idx);  // 1 x D
+        curr_spectrum = cell_spectra_final.row((uword)pc.master_idx);  // 1 x D
 
-        tl_cell_corrected_vec = (tl_cell_raw - af_intensity * tl_af_row).t(); // D
+        // AF-corrected cell signal for rank-1 leakage projection
+        cell_corrected_vec = (cell_raw - af_intensity * af_row).t();   // D
 
-        tl_scores.set_size(nv);
-        tl_d_j_raw.set_size(spectra.n_cols);
-        tl_adj_other.set_size(F1);
+        scores.set_size(nv);
+        d_j_raw.set_size(D);
+        adj_other.set_size(F1);
 
         for (uword j = 0; j < nv; ++j) {
-          tl_d_j_raw  = pc.v_mats.row(j) - tl_curr_spectrum;
-          double d_j_norm = std::sqrt(dot(tl_d_j_raw, tl_d_j_raw));
+          d_j_raw = pc.v_mats.row(j) - curr_spectrum;
+          double d_j_norm = std::sqrt(dot(d_j_raw, d_j_raw));
 
+          // Pre-screen: alignment with weighted residual (consistent with WLS)
           double p_resid_j = (d_j_norm > 1e-12)
-            ? 1.0 - dot(tl_d_j_raw / d_j_norm, tl_resid) * align_scale
+            ? 1.0 - dot(d_j_raw / d_j_norm, resid) * align_scale
           : 1.0;
 
-          double k_j = dot(tl_cell_corrected_vec, pc.r_lib.col(j)) / pc.r_dots[j];
+          double k_j = dot(cell_corrected_vec, pc.r_lib.col(j)) / pc.r_dots[j];
           if (k_j < 0.0) k_j = 0.0;
 
-          tl_adj_other = tl_unmixed_other.t() - k_j * pc.v_lib.col(j);
-          double p_fluor_j = dot(pc.w, abs(tl_adj_other)) * base_e_fluor_inv;
+          adj_other = unmixed_other.t() - k_j * pc.v_lib.col(j);
+          double p_fluor_j = dot(pc.w, abs(adj_other)) * base_e_fluor_inv;
 
-          tl_scores[j] = p_resid_j * p_fluor_j;
+          scores[j] = p_resid_j * p_fluor_j;
         }
 
         // Top-K (ascending = better score)
         int k_eff = std::min(k_opt, (int)nv);
-        tl_top_k.resize(nv);
-        std::iota(tl_top_k.begin(), tl_top_k.end(), 0);
-        std::partial_sort(tl_top_k.begin(), tl_top_k.begin() + k_eff, tl_top_k.end(),
-                          [&](uword a, uword b) { return tl_scores[a] < tl_scores[b]; });
-        tl_top_k.resize(k_eff);
+        top_k.resize(nv);
+        std::iota(top_k.begin(), top_k.end(), 0);
+        std::partial_sort(top_k.begin(), top_k.begin() + k_eff, top_k.end(),
+                          [&](uword a, uword b) { return scores[a] < scores[b]; });
+        top_k.resize(k_eff);
 
-        double best_score = 1.0;  // baseline: both ratios = 1
+        double best_score = 1.0;
 
-        tl_t_other.set_size(F1);
+        t_other.set_size(F1);
 
         for (int vi = 0; vi < k_eff; ++vi) {
-          uword var_idx = tl_top_k[vi];
+          uword var_idx = top_k[vi];
 
           // Trial spectra: substitute variant row, AF row unchanged
-          tl_trial_spectra = tl_cell_spectra_final;
-          tl_trial_spectra.row((uword)pc.master_idx) = pc.v_mats.row(var_idx);
+          trial_spectra = cell_spectra_final;
+          trial_spectra.row((uword)pc.master_idx) = pc.v_mats.row(var_idx);
 
-          // Solve against cell_raw — AF re-estimated jointly
-          tl_t_full  = solve(tl_trial_spectra.t(), tl_cell_raw_vec,
-                             solve_opts::fast).t();                 // 1 x (F+1)
-          tl_t_resid = tl_cell_raw - (tl_t_full * tl_trial_spectra); // 1 x D
+          // WLS solve for trial variant
+          trial_spectra_w = trial_spectra.each_row() % sqrt_w.t();
+          t_full  = solve(trial_spectra_w.t(), cell_raw_w.t(),
+                          solve_opts::fast).t();                   // 1 x (F+1)
+          // Weighted residual
+          t_resid = (cell_raw - (t_full * trial_spectra)) % sqrt_w.t(); // 1 x D
 
-          // Other-fluorophore slice (excludes f, not AF)
           {
             uword oi = 0;
             for (uword p = 0; p < n_fluors; ++p)
-              if ((int)p != pc.master_idx) tl_t_other[oi++] = tl_t_full[p];
+              if ((int)p != pc.master_idx) t_other[oi++] = t_full[p];
           }
 
-          double e_fluor_t = dot(pc.w, abs(tl_t_other.t())) * base_e_fluor_inv;
-          double e_resid_t = std::sqrt(dot(tl_t_resid, tl_t_resid));
+          double e_fluor_t = dot(pc.w, abs(t_other.t())) * base_e_fluor_inv;
+          double e_resid_t = std::sqrt(dot(t_resid, t_resid));
 
           double composite = (e_resid_t / base_e_resid) * e_fluor_t;
 
           if (composite < best_score) {
-            best_score              = composite;
-            tl_unmixed_curr         = tl_t_full.head(n_fluors);
-            af_intensity            = tl_t_full(n_fluors);
-            tl_resid                = tl_t_resid;
-            resid_norm              = e_resid_t;
-            tl_cell_spectra_final   = tl_trial_spectra;
+            best_score            = composite;
+            unmixed_curr          = t_full.head(n_fluors);
+            af_intensity          = t_full(n_fluors);
+            resid                 = t_resid;
+            resid_norm            = e_resid_t;
+            cell_spectra_final    = trial_spectra;
+            cell_spectra_w        = trial_spectra_w;
           }
         }
       }
 
-      // Final solve with all accepted variants, AF included
-      tl_final_full   = solve(tl_cell_spectra_final.t(), tl_cell_raw_vec,
-                              solve_opts::fast).t();
-      tl_unmixed_curr = tl_final_full.head(n_fluors);
-      af_intensity    = tl_final_full(n_fluors);
+      // Final WLS solve with all accepted variants
+      final_full   = solve(cell_spectra_w.t(), cell_raw_w.t(),
+                           solve_opts::fast).t();
+      unmixed_curr = final_full.head(n_fluors);
+      af_intensity = final_full(n_fluors);
     }
 
-    res(i, span(0, n_fluors - 1)) = tl_unmixed_curr;
-    res(i, n_fluors)     = af_intensity;
-    res(i, n_fluors + 1) = (double)best_idx_af + 1.0;
+    res(i, span(0, n_fluors - 1)) = unmixed_curr;
+    res(i, n_fluors)              = af_intensity;
+    res(i, n_fluors + 1)          = (double)best_idx_af + 1.0;
   }
+} // end omp parallel
 
-  return res;
+return res;
 }

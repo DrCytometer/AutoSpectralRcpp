@@ -61,7 +61,7 @@ unmix.autospectral.rcpp <- function(
     parallel = TRUE,
     threads = 1L,
     n.variants = NULL,
-    pipeline = c( "joint", "legacy" ),
+    pipeline = c("joint", "legacy"),
     n.passes = 2L
 ) {
 
