@@ -61,6 +61,8 @@ readFCS <- function(
     end.row         = NULL
 ) {
 
+  fcs.path <- path.expand(fcs.path)
+
   # --- 1. Parse TEXT segment keywords ---------------------------------------
   con <- file(fcs.path, open = "rb")
   on.exit(close(con))

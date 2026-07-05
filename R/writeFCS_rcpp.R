@@ -35,6 +35,8 @@
 
 writeFCS <- function(mat, keys, file.name, output.dir) {
 
+  output.dir <- path.expand(output.dir)
+
   delim <- "|"
 
   # --- 1. Enforce mandatory keywords ----------------------------------------
