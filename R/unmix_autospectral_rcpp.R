@@ -49,7 +49,7 @@
   optimize.fluors <- fluorophores[ fluorophores %in% names( variants ) ]
 
   if ( length( optimize.fluors ) == 0 )
-    return( modifyList( empty, list( pos.thresholds = pos.thresholds ) ) )
+    return( utils::modifyList( empty, list( pos.thresholds = pos.thresholds ) ) )
 
   # delta.list / delta.norms: use pre-computed if available, else derive
   if ( is.null( spectra.variants$delta.list ) ) {
