@@ -92,12 +92,8 @@ unmix_af_residuals <- function(raw_data, fluor_spectra, af_spectra, n_threads = 
     .Call(`_AutoSpectralRcpp_unmix_af_residuals`, raw_data, fluor_spectra, af_spectra, n_threads)
 }
 
-unmix_autospectral_cov_cpp <- function(raw_data_in, spectra, af_spectra, fluor_names, optimize_fluors, pos_thresholds, variants, delta_list, delta_norms, k_opt = 1L, n_threads = 1L, cell_weight = FALSE, noise_floor = 1.0) {
-    .Call(`_AutoSpectralRcpp_unmix_autospectral_cov_cpp`, raw_data_in, spectra, af_spectra, fluor_names, optimize_fluors, pos_thresholds, variants, delta_list, delta_norms, k_opt, n_threads, cell_weight, noise_floor)
-}
-
-unmix_autospectral_joint_cpp <- function(raw_data_in, spectra, af_spectra, fluor_names, pos_thresholds, variants_list, delta_list, n_passes = 2L, n_threads = 1L, cell_weight = FALSE, noise_floor = 1.0) {
-    .Call(`_AutoSpectralRcpp_unmix_autospectral_joint_cpp`, raw_data_in, spectra, af_spectra, fluor_names, pos_thresholds, variants_list, delta_list, n_passes, n_threads, cell_weight, noise_floor)
+unmix_autospectral_joint_cpp <- function(raw_data_in, spectra, af_spectra, fluor_names, pos_thresholds, variants_list, delta_list, n_passes = 2L, n_threads = 1L, cell_weight = FALSE, noise_floor = NULL, alpha = 0.5, collinear_thresh = 0.5, joint_pair_resolution = TRUE, n_af_passes = 1L, refine_af_quantile = 0.5) {
+    .Call(`_AutoSpectralRcpp_unmix_autospectral_joint_cpp`, raw_data_in, spectra, af_spectra, fluor_names, pos_thresholds, variants_list, delta_list, n_passes, n_threads, cell_weight, noise_floor, alpha, collinear_thresh, joint_pair_resolution, n_af_passes, refine_af_quantile)
 }
 
 unmix_autospectral_pipeline_cpp <- function(raw_data_in, spectra, af_spectra, fluor_names, optimize_fluors, pos_thresholds, variants, delta_list, delta_norms, k_opt = 1L, n_threads = 1L, optimize = TRUE, use_dist0 = TRUE) {

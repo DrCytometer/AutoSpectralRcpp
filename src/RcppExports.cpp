@@ -176,32 +176,9 @@ BEGIN_RCPP
     return rcpp_result_gen;
 END_RCPP
 }
-// unmix_autospectral_cov_cpp
-arma::mat unmix_autospectral_cov_cpp(arma::mat raw_data_in, const arma::mat& spectra, const arma::mat& af_spectra, const CharacterVector& fluor_names, const CharacterVector& optimize_fluors, const arma::vec& pos_thresholds, const List& variants, const List& delta_list, const List& delta_norms, int k_opt, int n_threads, bool cell_weight, double noise_floor);
-RcppExport SEXP _AutoSpectralRcpp_unmix_autospectral_cov_cpp(SEXP raw_data_inSEXP, SEXP spectraSEXP, SEXP af_spectraSEXP, SEXP fluor_namesSEXP, SEXP optimize_fluorsSEXP, SEXP pos_thresholdsSEXP, SEXP variantsSEXP, SEXP delta_listSEXP, SEXP delta_normsSEXP, SEXP k_optSEXP, SEXP n_threadsSEXP, SEXP cell_weightSEXP, SEXP noise_floorSEXP) {
-BEGIN_RCPP
-    Rcpp::RObject rcpp_result_gen;
-    Rcpp::RNGScope rcpp_rngScope_gen;
-    Rcpp::traits::input_parameter< arma::mat >::type raw_data_in(raw_data_inSEXP);
-    Rcpp::traits::input_parameter< const arma::mat& >::type spectra(spectraSEXP);
-    Rcpp::traits::input_parameter< const arma::mat& >::type af_spectra(af_spectraSEXP);
-    Rcpp::traits::input_parameter< const CharacterVector& >::type fluor_names(fluor_namesSEXP);
-    Rcpp::traits::input_parameter< const CharacterVector& >::type optimize_fluors(optimize_fluorsSEXP);
-    Rcpp::traits::input_parameter< const arma::vec& >::type pos_thresholds(pos_thresholdsSEXP);
-    Rcpp::traits::input_parameter< const List& >::type variants(variantsSEXP);
-    Rcpp::traits::input_parameter< const List& >::type delta_list(delta_listSEXP);
-    Rcpp::traits::input_parameter< const List& >::type delta_norms(delta_normsSEXP);
-    Rcpp::traits::input_parameter< int >::type k_opt(k_optSEXP);
-    Rcpp::traits::input_parameter< int >::type n_threads(n_threadsSEXP);
-    Rcpp::traits::input_parameter< bool >::type cell_weight(cell_weightSEXP);
-    Rcpp::traits::input_parameter< double >::type noise_floor(noise_floorSEXP);
-    rcpp_result_gen = Rcpp::wrap(unmix_autospectral_cov_cpp(raw_data_in, spectra, af_spectra, fluor_names, optimize_fluors, pos_thresholds, variants, delta_list, delta_norms, k_opt, n_threads, cell_weight, noise_floor));
-    return rcpp_result_gen;
-END_RCPP
-}
 // unmix_autospectral_joint_cpp
-arma::mat unmix_autospectral_joint_cpp(arma::mat raw_data_in, const arma::mat& spectra, const arma::mat& af_spectra, const CharacterVector& fluor_names, const arma::vec& pos_thresholds, const List& variants_list, const List& delta_list, int n_passes, int n_threads, bool cell_weight, double noise_floor);
-RcppExport SEXP _AutoSpectralRcpp_unmix_autospectral_joint_cpp(SEXP raw_data_inSEXP, SEXP spectraSEXP, SEXP af_spectraSEXP, SEXP fluor_namesSEXP, SEXP pos_thresholdsSEXP, SEXP variants_listSEXP, SEXP delta_listSEXP, SEXP n_passesSEXP, SEXP n_threadsSEXP, SEXP cell_weightSEXP, SEXP noise_floorSEXP) {
+arma::mat unmix_autospectral_joint_cpp(arma::mat raw_data_in, const arma::mat& spectra, const arma::mat& af_spectra, const CharacterVector& fluor_names, const arma::vec& pos_thresholds, const List& variants_list, const List& delta_list, int n_passes, int n_threads, bool cell_weight, Rcpp::Nullable<Rcpp::NumericVector> noise_floor, double alpha, double collinear_thresh, bool joint_pair_resolution, int n_af_passes, double refine_af_quantile);
+RcppExport SEXP _AutoSpectralRcpp_unmix_autospectral_joint_cpp(SEXP raw_data_inSEXP, SEXP spectraSEXP, SEXP af_spectraSEXP, SEXP fluor_namesSEXP, SEXP pos_thresholdsSEXP, SEXP variants_listSEXP, SEXP delta_listSEXP, SEXP n_passesSEXP, SEXP n_threadsSEXP, SEXP cell_weightSEXP, SEXP noise_floorSEXP, SEXP alphaSEXP, SEXP collinear_threshSEXP, SEXP joint_pair_resolutionSEXP, SEXP n_af_passesSEXP, SEXP refine_af_quantileSEXP) {
 BEGIN_RCPP
     Rcpp::RObject rcpp_result_gen;
     Rcpp::RNGScope rcpp_rngScope_gen;
@@ -215,8 +192,13 @@ BEGIN_RCPP
     Rcpp::traits::input_parameter< int >::type n_passes(n_passesSEXP);
     Rcpp::traits::input_parameter< int >::type n_threads(n_threadsSEXP);
     Rcpp::traits::input_parameter< bool >::type cell_weight(cell_weightSEXP);
-    Rcpp::traits::input_parameter< double >::type noise_floor(noise_floorSEXP);
-    rcpp_result_gen = Rcpp::wrap(unmix_autospectral_joint_cpp(raw_data_in, spectra, af_spectra, fluor_names, pos_thresholds, variants_list, delta_list, n_passes, n_threads, cell_weight, noise_floor));
+    Rcpp::traits::input_parameter< Rcpp::Nullable<Rcpp::NumericVector> >::type noise_floor(noise_floorSEXP);
+    Rcpp::traits::input_parameter< double >::type alpha(alphaSEXP);
+    Rcpp::traits::input_parameter< double >::type collinear_thresh(collinear_threshSEXP);
+    Rcpp::traits::input_parameter< bool >::type joint_pair_resolution(joint_pair_resolutionSEXP);
+    Rcpp::traits::input_parameter< int >::type n_af_passes(n_af_passesSEXP);
+    Rcpp::traits::input_parameter< double >::type refine_af_quantile(refine_af_quantileSEXP);
+    rcpp_result_gen = Rcpp::wrap(unmix_autospectral_joint_cpp(raw_data_in, spectra, af_spectra, fluor_names, pos_thresholds, variants_list, delta_list, n_passes, n_threads, cell_weight, noise_floor, alpha, collinear_thresh, joint_pair_resolution, n_af_passes, refine_af_quantile));
     return rcpp_result_gen;
 END_RCPP
 }
@@ -256,8 +238,7 @@ static const R_CallMethodDef CallEntries[] = {
     {"_AutoSpectralRcpp_poisson_irls_rcpp_parallel", (DL_FUNC) &_AutoSpectralRcpp_poisson_irls_rcpp_parallel, 8},
     {"_AutoSpectralRcpp_unmix_af_fluorophores", (DL_FUNC) &_AutoSpectralRcpp_unmix_af_fluorophores, 4},
     {"_AutoSpectralRcpp_unmix_af_residuals", (DL_FUNC) &_AutoSpectralRcpp_unmix_af_residuals, 4},
-    {"_AutoSpectralRcpp_unmix_autospectral_cov_cpp", (DL_FUNC) &_AutoSpectralRcpp_unmix_autospectral_cov_cpp, 13},
-    {"_AutoSpectralRcpp_unmix_autospectral_joint_cpp", (DL_FUNC) &_AutoSpectralRcpp_unmix_autospectral_joint_cpp, 11},
+    {"_AutoSpectralRcpp_unmix_autospectral_joint_cpp", (DL_FUNC) &_AutoSpectralRcpp_unmix_autospectral_joint_cpp, 16},
     {"_AutoSpectralRcpp_unmix_autospectral_pipeline_cpp", (DL_FUNC) &_AutoSpectralRcpp_unmix_autospectral_pipeline_cpp, 13},
     {NULL, NULL, 0}
 };

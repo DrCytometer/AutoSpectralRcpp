@@ -16,13 +16,20 @@ unmix.autospectral.rcpp(
   threads = 1L,
   n.variants = NULL,
   pipeline = c("joint", "legacy"),
-  n.passes = 2L
+  n.af.passes = 1L,
+  n.passes = 2L,
+  cell.weight = FALSE,
+  noise.floor = 125L,
+  alpha = 0.5,
+  collinear.threshold = 0.5,
+  joint.pair.resolution = TRUE,
+  refine.af.quantile = 0.5
 )
 }
 \arguments{
 \item{raw.data}{Expression data from raw fcs files. Cells in rows and
 detectors in columns. Columns should be fluorescent data only and must
-match the columns in spectra.}
+match those of \code{spectra}.}
 
 \item{spectra}{Spectral signatures of fluorophores, normalized between 0
 and 1, with fluorophores in rows and detectors in columns.}
@@ -31,45 +38,87 @@ and 1, with fluorophores in rows and detectors in columns.}
 between 0 and 1, with fluorophores in rows and detectors in columns. Prepare
 using \code{get.af.spectra}.}
 
-\item{spectra.variants}{Named list (names are fluorophores) carrying matrices
-of spectral signature variations for each fluorophore. Prepare using
-\code{get.spectral.variants}. Default is \code{NULL}.}
+\item{spectra.variants}{Named list produced by \code{get.spectra.variants},
+or \code{NULL} (default) for AF-only mode.}
 
 \item{use.dist0}{Logical, controls whether the selection of the optimal AF
 signature for each cell is determined by which unmixing brings the fluorophore
-signals closest to 0 (\code{use.dist0} = \code{TRUE}) or by which unmixing minimizes the
-per-cell residual (\code{use.dist0} = \code{FALSE}). Default is \code{TRUE}.}
+signals closest to 0 (\code{use.dist0} = \code{TRUE}) or by which unmixing
+minimizes the per-cell residual (\code{use.dist0} = \code{FALSE}). Default
+is \code{TRUE}. Used by the "legacy" pipeline.}
 
-\item{verbose}{Logical, default \code{TRUE}. Whether to send messages to the console.}
+\item{verbose}{Logical, default \code{TRUE}. Whether to send messages to the
+console.}
 
-\item{speed}{Default is \code{fast}. Selector for the precision-speed trade-off in
-AutoSpectral per-cell fluorophore optimization. Options are \code{slow}, \code{medium}
-and \code{fast}. From v1.0.0, this controls the number of variants tested per cell
-(and per fluorophore). More variants takes longer, but gives better resolution
-in some unmixed data. When \code{speed = fast}, as single variant will be tested;
-for \code{medium}, three will be tested and for \code{slow}, 10 variants will be tested.}
+\item{speed}{Default is \code{fast}. Selector for the precision-speed trade-off
+in AutoSpectral per-cell fluorophore optimization. Options are \code{slow},
+\code{medium} and \code{fast}. From v1.0.0, this controls the number of
+variants tested per cell (and per fluorophore). More variants takes longer,
+but gives better resolution in some unmixed data. When \code{speed = fast},
+as single variant will be tested; for \code{medium}, three will be tested and
+for \code{slow}, 10 variants will be tested.}
 
 \item{parallel}{Logical, default is \code{TRUE}. Always use parallel processing in
 the C++ version for faster results.}
 
-\item{threads}{Numeric, default is \code{1}.}
+\item{threads}{Integer, number of OpenMP threads. Default \code{1L}.}
 
 \item{n.variants}{Number of variants to test per cell. Allows explicit control
 over the number used, as opposed to \code{speed}, which selects from pre-defined
 choices. Providing a numeric value to \code{n.variants} will override \code{speed},
-allowing up to \code{n.variants} (or the max available) variants to be tested. The
-default is \code{NULL}, in which case \code{n.variants} will be ignored.}
+allowing up to \code{n.variants} (or the max available) variants to be tested.
+The default is \code{NULL}, in which case \code{n.variants} will be ignored.}
 
-\item{pipeline}{Character, one of \code{"joint"} (default) or \code{"legacy"}.
+\item{pipeline}{Character, one of \code{"joint"} (default) or \code{"legacy"} .
 \code{"joint"} uses the new covariance-weighted joint AF + variant optimisation
 pipeline (\code{unmix_autospectral_joint_cpp} or its pure-R equivalent).
 \code{"legacy"} uses the previous sequential pipeline
 (\code{unmix_autospectral_pipeline_cpp}), which selects the AF spectrum first
 and then optimises fluorophore variants independently.}
 
-\item{n.passes}{Integer, default \code{2L}. Number of joint optimisation passes
-per cell. Only used when \code{pipeline = "joint"}. Higher values allow more
-swaps to be committed per cell at the cost of additional computation.}
+\item{n.af.passes}{Integer, number of autofluorescence extraction passes per cell.
+Default \code{1L}. Only used when \code{pipeline = "joint"}. Higher values allow
+a bit more AF to be extracted and may be useful for tissue samples. Neglible
+difference is expected for PBMC data.}
+
+\item{n.passes}{Integer, number of joint fluorophore optimisation passes per cell.
+Default \code{2L}. Only used when \code{pipeline = "joint"}. Higher values allow
+more swaps to be committed per cell at the cost of additional computation.}
+
+\item{cell.weight}{Logical. If \code{TRUE}, applies per-cell detector
+weighting to the unmixing solve. Weights are \eqn{w_d = 1 /
+\max(|\hat{y}_d|, \text{noise.floor})}, where \eqn{\hat{y}_d} is the
+fitted signal in detector \eqn{d} from an initial unweighted solve.
+Default \code{FALSE}. Useful for ID7000 files. Used in the new
+\code{unmix_autospectral_joint_cpp}  pipeline.}
+
+\item{noise.floor}{Numeric. Lower clamp on the denominator of the per-cell
+detector weights, preventing \eqn{w_d \to \infty} for near-dark channels.
+Only used when \code{cell.weight = TRUE}. Default \code{1}.}
+
+\item{alpha}{Numeric, default \code{0.5}. Weighting for balancing residual and
+covariance spillover minimization. Used in the new \code{unmix_autospectral_joint_cpp}
+pipeline.}
+
+\item{collinear.threshold}{Numeric, default \code{0.5}. Cosine similarity value to
+trigger conflict assessment in assignment of per-cell fluorophore spectral
+variants. Higher values will allow committing variants that minimize
+spillover from the brighter (higher abundance) fluorophore on a cell, even
+if that might incorrectly reduce the calculated abundance of the lower
+expression collinear fluorophore being spilled into. The lower the value,
+the more conflict resolution will be required and the longer the calculation
+will take. The default \code{0.5} is about right.}
+
+\item{joint.pair.resolution}{Logical, default \code{TRUE}. Whether to perform a
+round of "conflict resolution" for collinear fluorophores that compete for
+the same spillover/residual space. When \code{TRUE}, a small combinatorial test
+will be performed exclusively for the competing pair(s) to attempt to find
+an optimal solution.}
+
+\item{refine.af.quantile}{Numeric, default \code{0.5}. Fraction of cells to
+take forward for any additional AF passes (determined by \code{n.af.passes}).
+Set to \code{1} to assess all cells in subsequent round; otherwise the highest
+abundance AF cells will be reassessed.}
 }
 \value{
 Unmixed data with cells in rows and fluorophores in columns.
