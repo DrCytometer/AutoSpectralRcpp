@@ -149,7 +149,7 @@
 #'   choices. Providing a numeric value to \code{n.variants} will override \code{speed},
 #'   allowing up to \code{n.variants} (or the max available) variants to be tested.
 #'   The default is `NULL`, in which case \code{n.variants} will be ignored.
-#' @param pipeline Character, one of \code{"joint"} (default) or \code{"legacy"} .
+#' @param pipeline Character, one of \code{"legacy"} (default) or \code{"joint"} .
 #'   \code{"joint"} uses the new covariance-weighted joint AF + variant optimisation
 #'   pipeline (\code{unmix_autospectral_joint_cpp} or its pure-R equivalent).
 #'   \code{"legacy"} uses the previous sequential pipeline
@@ -160,7 +160,7 @@
 #'   a bit more AF to be extracted and may be useful for tissue samples. Neglible
 #'   difference is expected for PBMC data.
 #' @param n.passes Integer, number of joint fluorophore optimisation passes per cell.
-#'   Default \code{2L}. Only used when \code{pipeline = "joint"}. Higher values allow
+#'   Default \code{1L}. Only used when \code{pipeline = "joint"}. Higher values allow
 #'   more swaps to be committed per cell at the cost of additional computation.
 #' @param cell.weight Logical. If \code{TRUE}, applies per-cell detector
 #'   weighting to the unmixing solve. Weights are \eqn{w_d = 1 /
@@ -207,9 +207,9 @@ unmix.autospectral.rcpp <- function(
     parallel              = TRUE,
     threads               = 1L,
     n.variants            = NULL,
-    pipeline              = c("joint", "legacy"),
+    pipeline              = c("legacy", "joint"),
     n.af.passes           = 1L,
-    n.passes              = 2L,
+    n.passes              = 1L,
     cell.weight           = FALSE,
     noise.floor           = 125L,
     alpha                 = 0.5,
