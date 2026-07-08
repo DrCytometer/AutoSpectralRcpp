@@ -111,8 +111,9 @@ arma::mat unmix_autospectral_joint_cpp(
   }
 
   // Global weighted pseudoinverse P_w = (S W S^T)^{-1} S W, shape F x D.
-  const mat spectra_w = spectra.each_row() % sqrt_w_global.t();  // F x D
-  mat P = solve(spectra_w * spectra_w.t(), spectra_w);            // F x D
+  const mat spectra_w  = spectra.each_row() % sqrt_w_global.t();  // F x D
+  const mat SST_global = spectra_w * spectra_w.t();               // F x F, constant across cells whenever cell_weight == false
+  mat P = solve(SST_global, spectra_w);                            // F x D
   P.each_row() %= sqrt_w_global.t();
 
   // AF helpers — computed in weighted detector space
@@ -375,28 +376,25 @@ for (int af_pass = 1; af_pass < n_af_passes; ++af_pass) {
     const double k_af     = af_abundance_vec[i];
     const uword best_j_af = af_index_vec[i];
 
-    cell_S.rows(0, F - 1) = spectra;
-
     if (cell_weight) {
-      S_F_w = cell_S.rows(0, F - 1);
+      S_F_w = spectra;
       S_F_w.each_row() %= sqrt_w_global.t();
       solve(coeff_init, S_F_w.t(), cell_resid % sqrt_w_global, solve_opts::fast);
-      y_hat   = (cell_S.rows(0, F - 1).t() * coeff_init) + (cell_raw - cell_resid);
+      y_hat = (spectra.t() * coeff_init) + (cell_raw - cell_resid);
       for (uword d = 0; d < D; ++d)
         sqrt_w[d] = 1.0 / std::sqrt(std::max(std::abs(y_hat[d]), current_noise_floor[d]));
+
+      cell_S_F_w    = spectra.each_row() % sqrt_w.t();
+      fluor_unmixed = solve(cell_S_F_w.t(), cell_resid % sqrt_w, solve_opts::fast);
     } else {
+      // Detector weights are identical across cells here, so use global P
       sqrt_w.ones();
+      cell_S_F_w    = spectra;
+      fluor_unmixed = P * cell_resid;
     }
 
-    const mat cell_S_F   = cell_S.rows(0, F - 1);
-    cell_S_F_w = cell_S_F.each_row() % sqrt_w.t();
-    fluor_unmixed = solve(cell_S_F_w.t(), cell_resid % sqrt_w, solve_opts::fast);
-    resid_raw     = cell_resid - cell_S_F.t() * clamp(fluor_unmixed, 0.0, datum::inf);
-    resid         = resid_raw % sqrt_w;
-
-    mat A_base = cell_S_F_w * cell_S_F_w.t();          // Symmetric F x F normal template
-    vec b_base = cell_S_F_w * (cell_resid % sqrt_w);   // Integrated F x 1 projection vector
-    vec y_vec  = cell_resid % sqrt_w;                  // D x 1 tracking reference
+    resid_raw = cell_resid - spectra.t() * clamp(fluor_unmixed, 0.0, datum::inf);
+    resid     = resid_raw % sqrt_w;
 
     // =====================================================================
     // B2. EARLY RETURN
@@ -407,6 +405,20 @@ for (int af_pass = 1; af_pass < n_af_passes; ++af_pass) {
       result(i, F + 1)           = (double)best_j_af + 1.0;
       continue;
     }
+
+    // Only needed for the joint variant-selection pass loop and try_commit's
+    // incremental Gram update (Section C) below -- now built *after* the
+    // af_only early return rather than before it.
+    cell_S.rows(0, F - 1) = spectra;
+
+    mat A_base;
+    if (cell_weight) {
+      A_base = cell_S_F_w * cell_S_F_w.t();
+    } else {
+      A_base = SST_global;   // constant across cells; reused from Section 1
+    }
+    vec b_base = cell_S_F_w * (cell_resid % sqrt_w);
+    vec y_vec  = cell_resid % sqrt_w;
 
     const double cell_resid_ss = dot(cell_resid, cell_resid);
     std::fill(best_v.begin(), best_v.end(), -1);
