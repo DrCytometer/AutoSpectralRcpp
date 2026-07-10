@@ -62,11 +62,8 @@ grant agreement No 874707 (EXIMIOUS), Wellcome Investigator Award,
 
 Recommended, but not essential: first install AutoSpectral:
 
-``` r
-devtools::install_github("DrCytometer/AutoSpectral")
-```
-
-Also recommended, upgrade the BLAS and LAPACK libraries used by R. These
+`{pak::pak}r, eval = FALSE} pak::pak("DrCytometer/AutoSpectral")` Also
+recommended, upgrade the BLAS and LAPACK libraries used by R. These
 provide algorithms for linear algebra, which is the heart of spectral
 unmixing. Simply swapping out your .dll files as in this tutorial can
 give speed ups of 5x. [Install
@@ -89,13 +86,13 @@ CXX_STD = CXX17 PKG_CXXFLAGS = -fopenmp PKG_LIBS = -fopenmp
 You can install the stable version of AutoSpectralRcpp like so:
 
 ``` r
-devtools::install_github("DrCytometer/AutoSpectralRcpp")
+pak::pak("DrCytometer/AutoSpectralRcpp")
 ```
 
 The development version may be slightly ahead:
 
 ``` r
-devtools::install_github("DrCytometer/AutoSpectralRcpp@dev")
+pak::pak("DrCytometer/AutoSpectralRcpp@dev")
 ```
 
 ## Example
