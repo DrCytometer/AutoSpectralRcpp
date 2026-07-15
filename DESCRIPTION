@@ -23,7 +23,7 @@ LinkingTo:
     Rcpp, 
     RcppArmadillo
 Imports:
-    AutoSpectral (>= 1.0.0),
+    AutoSpectral (>= 1.6.0),
     EmbedSOM,
     Rcpp
 Remotes:
