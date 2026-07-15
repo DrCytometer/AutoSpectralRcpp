@@ -22,9 +22,10 @@ SystemRequirements: OpenMP
 LinkingTo: 
     Rcpp, 
     RcppArmadillo
-Imports: 
-    Rcpp,
-    EmbedSOM
-Suggests:
-    AutoSpectral (>= 1.0.0)
+Imports:
+    AutoSpectral (>= 1.0.0),
+    EmbedSOM,
+    Rcpp
+Remotes:
+    DrCytometer/AutoSpectral
 Config/roxygen2/version: 8.0.0
