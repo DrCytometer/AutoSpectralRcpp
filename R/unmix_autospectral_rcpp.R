@@ -149,7 +149,7 @@
 #'   choices. Providing a numeric value to \code{n.variants} will override \code{speed},
 #'   allowing up to \code{n.variants} (or the max available) variants to be tested.
 #'   The default is `NULL`, in which case \code{n.variants} will be ignored.
-#' @param pipeline Character, one of \code{"legacy"} (default) or \code{"joint"} .
+#' @param pipeline Character, one of \code{"joint"} (default) or \code{"legacy"} .
 #'   \code{"joint"} uses the new covariance-weighted joint AF + variant optimisation
 #'   pipeline (\code{unmix_autospectral_joint_cpp} or its pure-R equivalent).
 #'   \code{"legacy"} uses the previous sequential pipeline
@@ -207,7 +207,7 @@ unmix.autospectral.rcpp <- function(
     parallel              = TRUE,
     threads               = 1L,
     n.variants            = NULL,
-    pipeline              = c("legacy", "joint"),
+    pipeline              = c("joint", "legacy"),
     n.af.passes           = 1L,
     n.passes              = 1L,
     cell.weight           = FALSE,
