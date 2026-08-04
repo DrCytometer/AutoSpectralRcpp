@@ -12,8 +12,7 @@
 #   - the C++ read loop is substantially faster for large channel counts
 #     (e.g. ID7000 with 183 channels)
 #
-# Keyword parsing and row-subsetting remain in R — the C++ layer only handles
-# the binary float read, which is the bottleneck.
+# Keyword parsing and row-subsetting remain in R
 
 #' @title Read FCS File (Rcpp-accelerated)
 #'
@@ -97,6 +96,24 @@ readFCS <- function(
   byte.ord <- keywords[["$BYTEORD"]]
   swap     <- !identical(byte.ord, "1,2,3,4")
 
+  # --- 2a. Sanity-check DATA segment size against $TOT/$PAR -----------------
+  # Catches header/TEXT corruption or a mismatched $BEGINDATA/$ENDDATA pair
+  # before it ever reaches the C++ seek/read
+  expected.bytes <- total.events * n.par * 4
+  if (!is.null(keywords[["$ENDDATA"]])) {
+    data.en <- as.numeric(keywords[["$ENDDATA"]])
+    actual.bytes <- data.en - data.st + 1
+    if (abs(actual.bytes - expected.bytes) > n.par * 4) {
+      stop(
+        "DATA segment size implied by $TOT (", total.events, ") x $PAR (",
+        n.par, ") x 4 bytes = ", expected.bytes,
+        " bytes does not match $BEGINDATA/$ENDDATA (", actual.bytes,
+        " bytes). File may be corrupt or truncated: ", fcs.path,
+        call. = FALSE
+      )
+    }
+  }
+
   read.start       <- if (is.null(start.row)) 1 else as.numeric(start.row)
   read.end         <- if (is.null(end.row))   total.events else as.numeric(end.row)
   num.rows.to.read <- read.end - read.start + 1
@@ -104,15 +121,41 @@ readFCS <- function(
   # Offset into the data segment for the requested row range
   byte.offset <- data.st + ((read.start - 1) * n.par * 4)
 
+  # --- 2b. Validate DATATYPE/PnB match the reader's float32 assumption ------
+  # Both the C++ and pure-R readers hard-code 4-byte IEEE-754 float reads.
+  data.type <- keywords[["$DATATYPE"]]
+  if (!is.null(data.type) && !identical(data.type, "F")) {
+    stop(
+      "Unsupported $DATATYPE '", data.type, "' in ", fcs.path,
+      ": this reader only supports $DATATYPE/F/ (32-bit float). ",
+      "Files with $DATATYPE/D/ or $DATATYPE/I/ require a different code path.",
+      call. = FALSE
+    )
+  }
+
+  pnb.vals <- vapply(seq_len(n.par), function(i) {
+    val <- keywords[[paste0("$P", i, "B")]]
+    if (is.null(val)) NA_real_ else as.numeric(val)
+  }, numeric(1L))
+
+  if (any(!is.na(pnb.vals) & pnb.vals != 32)) {
+    bad <- which(!is.na(pnb.vals) & pnb.vals != 32)
+    stop(
+      "Parameter(s) ", paste(bad, collapse = ", "),
+      " in ", fcs.path, " declare $PnB != 32 (mixed bit depths are not ",
+      "supported by this reader, which assumes a uniform 32-bit float ",
+      "record layout).",
+      call. = FALSE
+    )
+  }
+
   # --- 3. Read binary data via C++ ------------------------------------------
-  # fcs_rcpp_read_data() reads float32 directly into a double matrix with no
-  # intermediate vector, so peak memory is ~1x the output matrix size.
   data.mat <- fcs_rcpp_read_data(
-    file_path   = fcs.path,
-    byte_offset = byte.offset,
-    n_row       = num.rows.to.read,
-    n_par       = n.par,
-    swap        = swap
+    file_path    = fcs.path,
+    byte_offset  = byte.offset,
+    n_row        = num.rows.to.read,
+    n_par        = n.par,
+    swap         = swap
   )
 
   # --- 4. Attach column names -----------------------------------------------
