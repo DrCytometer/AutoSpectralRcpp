@@ -55,15 +55,15 @@ BEGIN_RCPP
 END_RCPP
 }
 // fcs_rcpp_read_data
-NumericMatrix fcs_rcpp_read_data(const std::string& file_path, long byte_offset, long n_row, long n_par, bool swap);
+NumericMatrix fcs_rcpp_read_data(const std::string& file_path, double byte_offset, double n_row, double n_par, bool swap);
 RcppExport SEXP _AutoSpectralRcpp_fcs_rcpp_read_data(SEXP file_pathSEXP, SEXP byte_offsetSEXP, SEXP n_rowSEXP, SEXP n_parSEXP, SEXP swapSEXP) {
 BEGIN_RCPP
     Rcpp::RObject rcpp_result_gen;
     Rcpp::RNGScope rcpp_rngScope_gen;
     Rcpp::traits::input_parameter< const std::string& >::type file_path(file_pathSEXP);
-    Rcpp::traits::input_parameter< long >::type byte_offset(byte_offsetSEXP);
-    Rcpp::traits::input_parameter< long >::type n_row(n_rowSEXP);
-    Rcpp::traits::input_parameter< long >::type n_par(n_parSEXP);
+    Rcpp::traits::input_parameter< double >::type byte_offset(byte_offsetSEXP);
+    Rcpp::traits::input_parameter< double >::type n_row(n_rowSEXP);
+    Rcpp::traits::input_parameter< double >::type n_par(n_parSEXP);
     Rcpp::traits::input_parameter< bool >::type swap(swapSEXP);
     rcpp_result_gen = Rcpp::wrap(fcs_rcpp_read_data(file_path, byte_offset, n_row, n_par, swap));
     return rcpp_result_gen;
@@ -145,6 +145,36 @@ BEGIN_RCPP
     Rcpp::traits::input_parameter< const double >::type divergence_threshold(divergence_thresholdSEXP);
     Rcpp::traits::input_parameter< const int >::type max_halving_steps(max_halving_stepsSEXP);
     rcpp_result_gen = Rcpp::wrap(poisson_irls_rcpp_parallel(raw_data_in, spectra, beta_init_in, maxit, tol, n_threads, divergence_threshold, max_halving_steps));
+    return rcpp_result_gen;
+END_RCPP
+}
+// som_train_batch_cpp
+NumericMatrix som_train_batch_cpp(NumericMatrix data, NumericMatrix init_codes, NumericMatrix nhbrdist, NumericVector radii, int dist, int n_threads);
+RcppExport SEXP _AutoSpectralRcpp_som_train_batch_cpp(SEXP dataSEXP, SEXP init_codesSEXP, SEXP nhbrdistSEXP, SEXP radiiSEXP, SEXP distSEXP, SEXP n_threadsSEXP) {
+BEGIN_RCPP
+    Rcpp::RObject rcpp_result_gen;
+    Rcpp::RNGScope rcpp_rngScope_gen;
+    Rcpp::traits::input_parameter< NumericMatrix >::type data(dataSEXP);
+    Rcpp::traits::input_parameter< NumericMatrix >::type init_codes(init_codesSEXP);
+    Rcpp::traits::input_parameter< NumericMatrix >::type nhbrdist(nhbrdistSEXP);
+    Rcpp::traits::input_parameter< NumericVector >::type radii(radiiSEXP);
+    Rcpp::traits::input_parameter< int >::type dist(distSEXP);
+    Rcpp::traits::input_parameter< int >::type n_threads(n_threadsSEXP);
+    rcpp_result_gen = Rcpp::wrap(som_train_batch_cpp(data, init_codes, nhbrdist, radii, dist, n_threads));
+    return rcpp_result_gen;
+END_RCPP
+}
+// map_data_to_codes_cpp
+NumericMatrix map_data_to_codes_cpp(NumericMatrix data, NumericMatrix codes, int dist, int n_threads);
+RcppExport SEXP _AutoSpectralRcpp_map_data_to_codes_cpp(SEXP dataSEXP, SEXP codesSEXP, SEXP distSEXP, SEXP n_threadsSEXP) {
+BEGIN_RCPP
+    Rcpp::RObject rcpp_result_gen;
+    Rcpp::RNGScope rcpp_rngScope_gen;
+    Rcpp::traits::input_parameter< NumericMatrix >::type data(dataSEXP);
+    Rcpp::traits::input_parameter< NumericMatrix >::type codes(codesSEXP);
+    Rcpp::traits::input_parameter< int >::type dist(distSEXP);
+    Rcpp::traits::input_parameter< int >::type n_threads(n_threadsSEXP);
+    rcpp_result_gen = Rcpp::wrap(map_data_to_codes_cpp(data, codes, dist, n_threads));
     return rcpp_result_gen;
 END_RCPP
 }
@@ -236,6 +266,8 @@ static const R_CallMethodDef CallEntries[] = {
     {"_AutoSpectralRcpp_find_local_maxima", (DL_FUNC) &_AutoSpectralRcpp_find_local_maxima, 2},
     {"_AutoSpectralRcpp_optimize_unmix", (DL_FUNC) &_AutoSpectralRcpp_optimize_unmix, 12},
     {"_AutoSpectralRcpp_poisson_irls_rcpp_parallel", (DL_FUNC) &_AutoSpectralRcpp_poisson_irls_rcpp_parallel, 8},
+    {"_AutoSpectralRcpp_som_train_batch_cpp", (DL_FUNC) &_AutoSpectralRcpp_som_train_batch_cpp, 6},
+    {"_AutoSpectralRcpp_map_data_to_codes_cpp", (DL_FUNC) &_AutoSpectralRcpp_map_data_to_codes_cpp, 4},
     {"_AutoSpectralRcpp_unmix_af_fluorophores", (DL_FUNC) &_AutoSpectralRcpp_unmix_af_fluorophores, 4},
     {"_AutoSpectralRcpp_unmix_af_residuals", (DL_FUNC) &_AutoSpectralRcpp_unmix_af_residuals, 4},
     {"_AutoSpectralRcpp_unmix_autospectral_joint_cpp", (DL_FUNC) &_AutoSpectralRcpp_unmix_autospectral_joint_cpp, 16},
