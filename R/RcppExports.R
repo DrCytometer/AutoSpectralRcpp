@@ -84,6 +84,60 @@ poisson_irls_rcpp_parallel <- function(raw_data_in, spectra, beta_init_in, maxit
     .Call(`_AutoSpectralRcpp_poisson_irls_rcpp_parallel`, raw_data_in, spectra, beta_init_in, maxit, tol, n_threads, divergence_threshold, max_halving_steps)
 }
 
+#' Train a Self-Organizing Map with batch updates (OpenMP-accelerated)
+#'
+#' Port of EmbedSOM's batch SOM (\code{EmbedSOM::SOM(..., batch = TRUE)}),
+#' intended as the clustering engine behind \code{get.af.spectra()} and
+#' \code{get.fluor.variants()} without requiring EmbedSOM as a dependency.
+#'
+#' This is a different algorithm from the retired online \code{som_train_cpp()}
+#' (one weighted-average update per epoch over the whole dataset, rather than
+#' one small update per randomly-drawn event) and does not reproduce
+#' \code{FlowSOM::SOM()}'s per-event codebook trajectory bit-for-bit. It is
+#' validated instead against \code{EmbedSOM::SOM(..., batch = TRUE)} output
+#' for a fixed seed.
+#'
+#' @param data Numeric matrix, training events x features (column-major).
+#' @param init_codes Numeric matrix, initial codebook (rows = SOM nodes),
+#'   same columns as \code{data}. Chosen in R (e.g. a random sample of
+#'   \code{data} rows) so that \code{set.seed()} controls it.
+#' @param nhbrdist Numeric matrix (ncodes x ncodes), grid neighbourhood
+#'   distances.
+#' @param radii Numeric vector, one neighbourhood radius per epoch --
+#'   \code{length(radii)} is the number of epochs (there is no separate
+#'   \code{rlen}). Typically a decreasing schedule built in R, e.g.
+#'   \code{seq(radius_start, radius_end, length.out = rlen)}. Must stay
+#'   strictly positive: the neighbourhood kernel is
+#'   \code{exp(-d^2 / radius^2)}, and a radius of exactly 0 would starve
+#'   every node outside the exact best-matching unit (guarded internally
+#'   via \code{min_radius}, but avoid relying on that guard).
+#' @param dist Integer 1:4, distance function (1 manhattan, 2 euclidean,
+#'   3 chebyshev, 4 cosine). Default 2.
+#' @param n_threads Integer, OpenMP threads. Default 0 (all available
+#'   cores, via \code{omp_get_max_threads()}).
+#' @return Numeric matrix, the trained codebook (ncodes x features).
+#' @export
+som_train_batch_cpp <- function(data, init_codes, nhbrdist, radii, dist = 2L, n_threads = 0L) {
+    .Call(`_AutoSpectralRcpp_som_train_batch_cpp`, data, init_codes, nhbrdist, radii, dist, n_threads)
+}
+
+#' Map data onto a trained SOM codebook (OpenMP-accelerated)
+#'
+#' For each row of \code{data}, finds the nearest code in \code{codes}.
+#' Fully data-parallel across events.
+#'
+#' @param data Numeric matrix, events x features (same column order as
+#'   \code{codes}).
+#' @param codes Numeric matrix, SOM codebook (nodes x features).
+#' @param dist Integer 1:4, distance function (see \code{som_train_cpp}).
+#' @param n_threads Integer, OpenMP threads. Default 1.
+#' @return Numeric matrix, 2 columns: nearest code id (1-based) and distance
+#'   to that code, one row per event.
+#' @export
+map_data_to_codes_cpp <- function(data, codes, dist = 2L, n_threads = 1L) {
+    .Call(`_AutoSpectralRcpp_map_data_to_codes_cpp`, data, codes, dist, n_threads)
+}
+
 unmix_af_fluorophores <- function(raw_data, fluor_spectra, af_spectra, n_threads = 4L) {
     .Call(`_AutoSpectralRcpp_unmix_af_fluorophores`, raw_data, fluor_spectra, af_spectra, n_threads)
 }

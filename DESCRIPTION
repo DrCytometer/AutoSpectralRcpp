@@ -1,7 +1,7 @@
 Package: AutoSpectralRcpp
 Type: Package
 Title: Fast Tools for Unmxing Spectral Flow Cytometry Data
-Version: 1.2.0
+Version: 1.2.1
 Authors@R: c(
     person(
       "Oliver", "Burton",
@@ -24,7 +24,6 @@ LinkingTo:
     RcppArmadillo
 Imports:
     AutoSpectral (>= 1.6.0),
-    EmbedSOM,
     Rcpp
 Remotes:
     DrCytometer/AutoSpectral
