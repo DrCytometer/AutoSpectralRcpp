@@ -1,3 +1,9 @@
+# AutoSpectralRcpp 1.2.1 (2026-08-04)
+
+## Bug fixes
+- Fix issues causing C++ crash when reading or writing large FCS files
+
+
 # AutoSpectralRcpp 1.0.5 (2026-02-24)
 
 ## New features
