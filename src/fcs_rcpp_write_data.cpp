@@ -29,7 +29,7 @@ using namespace Rcpp;
 // Chunk size for the transpose+cast+write loop.
 // 131072 rows * 4 bytes/float * n_col: for 183 channels this is ~96 MB per
 // chunk, which is well within budget.  Adjust if needed.
-static const int CHUNK_ROWS = 131072;
+static const int64_t CHUNK_ROWS = 131072;
 
 // [[Rcpp::export]]
 void fcs_rcpp_write_data(
@@ -39,11 +39,11 @@ void fcs_rcpp_write_data(
         NumericMatrix      data_mat,       // events (rows) x channels (cols)
         bool               swap           // byte-swap for big-endian output
 ) {
-    const long n_row = data_mat.nrow();
-    const long n_col = data_mat.ncol();
+    const int64_t n_row = data_mat.nrow();
+    const int64_t n_col = data_mat.ncol();
 
     // validate header length
-    if ((long)header.size() != 58)
+    if ((int64_t)header.size() != 58)
         stop("header must be exactly 58 bytes, got " +
              std::to_string(header.size()));
 
@@ -70,34 +70,34 @@ void fcs_rcpp_write_data(
     // FCS requires row-major float32: event0[ch0,ch1,...], event1[ch0,ch1,...].
     // We process CHUNK_ROWS events at a time to bound peak memory.
 
-    const long chunk_rows = std::min((long)CHUNK_ROWS, n_row);
+    const int64_t chunk_rows = std::min((int64_t)CHUNK_ROWS, n_row);
     std::vector<float> buf(chunk_rows * n_col);
 
-    long rows_remaining = n_row;
-    long row_offset     = 0;
+    int64_t rows_remaining = n_row;
+    int64_t row_offset     = 0;
 
     while (rows_remaining > 0) {
-        long rows_this_chunk = std::min((long)CHUNK_ROWS, rows_remaining);
+        int64_t rows_this_chunk = std::min(CHUNK_ROWS, rows_remaining);
 
         // transpose chunk from column-major double into row-major float32
-        for (long col = 0; col < n_col; col++) {
+        for (int64_t col = 0; col < n_col; col++) {
             const double* col_ptr = &data_mat(row_offset, col);  // col-major ptr
-            for (long r = 0; r < rows_this_chunk; r++) {
+            for (int64_t r = 0; r < rows_this_chunk; r++) {
                 buf[r * n_col + col] = static_cast<float>(col_ptr[r]);
             }
         }
 
         // byte-swap if writing big-endian (rare but spec-legal)
         if (swap) {
-            for (long k = 0; k < rows_this_chunk * n_col; k++) {
+            for (int64_t k = 0; k < rows_this_chunk * n_col; k++) {
                 char* p = reinterpret_cast<char*>(&buf[k]);
                 std::swap(p[0], p[3]);
                 std::swap(p[1], p[2]);
             }
         }
 
-        long n_vals  = rows_this_chunk * n_col;
-        long written = static_cast<long>(
+        int64_t n_vals  = rows_this_chunk * n_col;
+        int64_t written = static_cast<int64_t>(
             std::fwrite(buf.data(), sizeof(float), n_vals, f)
         );
         if (written != n_vals) {

@@ -62,7 +62,9 @@ writeFCS <- function(mat, keys, file.name, output.dir) {
 
   TEXT.start       <- 58L
   TEXT.end         <- nchar(text.segment, "bytes") + TEXT.start - 1L
-  data.stream.bytes <- nrow(mat) * ncol(mat) * 4L   # float32
+  # nrow(mat)/ncol(mat) are R integers (32-bit); force double arithmetic
+  # explicitly rather than relying on literal-suffix promotion
+  data.stream.bytes <- as.double(nrow(mat)) * as.double(ncol(mat)) * 4  # float32
 
   # --- 3. Resolve self-referential $BEGINDATA / $ENDDATA --------------------
   # TEXT.end grows as the offset strings get longer; iterate to convergence.
