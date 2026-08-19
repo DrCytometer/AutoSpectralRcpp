@@ -218,6 +218,15 @@ unmix.autospectral.rcpp <- function(
     refine.af.quantile    = 0.5
 ) {
 
+  # spectral reference matrix must contain exactly one row per fluorophore
+  # before any unmixing method runs
+  if (
+    requireNamespace( "AutoSpectral", quietly = TRUE ) &&
+    "check.spectra.duplicates" %in% ls( getNamespace( "AutoSpectral" ) )
+  ) {
+    AutoSpectral::check.spectra.duplicates( spectra )
+  }
+
   # check for AF in spectra, remove if present
   if ( "AF" %in% rownames( spectra ) )
     spectra <- spectra[ rownames( spectra ) != "AF", , drop = FALSE ]
