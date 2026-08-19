@@ -123,8 +123,15 @@ arma::mat unmix_autospectral_joint_cpp(
   vec r_dots_af(nAF);
   for (uword j = 0; j < nAF; ++j) {
     const vec r_w = r_lib_af.col(j) % sqrt_w_global;
-    r_dots_af[j] = std::max(dot(r_w, r_w), 1e-10);
+    r_dots_af[j] = dot(r_w, r_w);
   }
+  // Identifiability guard: an AF variant lying almost inside the fluorophore
+  // span has a vanishing out-of-span residual direction, so its abundance k
+  // is not identifiable from the residual and the raw ratio explodes. Floor
+  // each self-dot at a fraction of the largest, capping the relative
+  // amplification of near-in-span variants.
+  const double r_dots_floor = 0.01 * std::max(r_dots_af.max(), 1e-10);
+  r_dots_af = clamp(r_dots_af, r_dots_floor, arma::datum::inf);
 
   // r_lib_af pre-scaled by w_global^2, so the per-cell k_j numerator for
   // every AF candidate collapses into a single gemv instead of nAF dot()s.
