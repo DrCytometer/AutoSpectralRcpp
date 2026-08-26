@@ -50,7 +50,7 @@ struct FluorPrecomp {
 
 // [[Rcpp::export]]
 arma::mat unmix_autospectral_joint_cpp(
-    arma::mat              raw_data_in,
+    const arma::mat&       raw_data_in,
     const arma::mat&       spectra,
     const arma::mat&       af_spectra,
     const CharacterVector& fluor_names,
@@ -67,7 +67,10 @@ arma::mat unmix_autospectral_joint_cpp(
     int                    n_af_passes          = 1,
     double                 refine_af_quantile   = 0.5
 ) {
-  mat raw_data = raw_data_in.t();   // D x N
+  const mat raw_data = raw_data_in.t();   // D x N. raw_data_in is now a const&, so
+  // RcppArmadillo aliases R's memory instead
+  // of copying it before this transpose makes
+  // the one copy that's actually needed.
   const uword N   = raw_data.n_cols;
   const uword F   = spectra.n_rows;
   const uword D   = spectra.n_cols;

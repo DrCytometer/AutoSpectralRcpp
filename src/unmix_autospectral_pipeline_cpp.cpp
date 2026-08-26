@@ -33,7 +33,7 @@ static std::vector<uword> find_top_k(const vec& scores, int k) {
 
 // [[Rcpp::export]]
 arma::mat unmix_autospectral_pipeline_cpp(
-    arma::mat raw_data_in,
+    const arma::mat& raw_data_in,
     const arma::mat& spectra,
     const arma::mat& af_spectra,
     const CharacterVector& fluor_names,
@@ -47,7 +47,7 @@ arma::mat unmix_autospectral_pipeline_cpp(
     bool optimize = true,
     bool use_dist0 = true
 ) {
-  mat raw_data = raw_data_in.t();
+  const mat raw_data = raw_data_in.t();
   uword n_cells = raw_data.n_cols;
   uword n_fluors = spectra.n_rows;
   uword n_af = af_spectra.n_rows;
