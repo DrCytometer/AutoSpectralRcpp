@@ -33,6 +33,12 @@
 #'   \code{NULL} reads from the first event.
 #' @param end.row Optional numeric. Last event (row) to read. Default
 #'   \code{NULL} reads to the last event.
+#' @param columns Optional character vector of \code{$PnN} channel names to
+#'   read. Default \code{NULL} reads and returns every channel (unchanged
+#'   behaviour). Supplying a subset avoids decoding and materializing columns
+#'   that will be discarded immediately afterward -- useful for wide panels
+#'   (e.g. ID7000, Xenith) where only spectral + a few passthrough channels
+#'   are actually needed.
 #'
 #' @return If \code{return.keywords = FALSE} (default): a numeric matrix with
 #'   events in rows and channels in columns.  If \code{return.keywords = TRUE}:
@@ -57,7 +63,8 @@ readFCS <- function(
     fcs.path,
     return.keywords = FALSE,
     start.row       = NULL,
-    end.row         = NULL
+    end.row         = NULL,
+    columns         = NULL
 ) {
 
   fcs.path <- path.expand(fcs.path)
@@ -149,20 +156,36 @@ readFCS <- function(
     )
   }
 
-  # --- 3. Read binary data via C++ ------------------------------------------
-  data.mat <- fcs_rcpp_read_data(
-    file_path    = fcs.path,
-    byte_offset  = byte.offset,
-    n_row        = num.rows.to.read,
-    n_par        = n.par,
-    swap         = swap
-  )
-
-  # --- 4. Attach column names -----------------------------------------------
-  col.names <- unname(vapply(seq_len(n.par), function(i) {
+  # --- 3. Resolve the full parameter name list, then an optional subset -----
+  all.col.names <- unname(vapply(seq_len(n.par), function(i) {
     val <- keywords[[paste0("$P", i, "N")]]
     if (is.null(val)) paste0("Channel_", i) else val
   }, character(1L)))
+
+  if (is.null(columns)) {
+    selected.idx <- NULL
+    col.names    <- all.col.names
+  } else {
+    selected.idx <- match(columns, all.col.names)
+    if (anyNA(selected.idx)) {
+      stop(
+        "Requested column(s) not found in ", fcs.path, ": ",
+        paste(columns[is.na(selected.idx)], collapse = ", "),
+        call. = FALSE
+      )
+    }
+    col.names <- all.col.names[selected.idx]
+  }
+
+  # --- 4. Read binary data via C++ -------------------------------------------
+  data.mat <- fcs_rcpp_read_data_test(
+    file_path     = fcs.path,
+    byte_offset   = byte.offset,
+    n_row         = num.rows.to.read,
+    n_par         = n.par,
+    swap          = swap,
+    selected_cols = if (is.null(selected.idx)) NULL else selected.idx - 1L
+  )
   colnames(data.mat) <- col.names
 
   # --- 5. Return ------------------------------------------------------------

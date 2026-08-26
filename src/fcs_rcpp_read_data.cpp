@@ -4,6 +4,7 @@
 #include <fstream>
 #include <stdexcept>
 #include <cstdint>
+#include <vector>
 
 using namespace Rcpp;
 
@@ -13,7 +14,8 @@ NumericMatrix fcs_rcpp_read_data(
     double byte_offset,
     double n_row,
     double n_par,
-    bool swap
+    bool swap,
+    Rcpp::Nullable<Rcpp::IntegerVector> selected_cols = R_NilValue
 ) {
   if (n_row <= 0) stop("n_row must be positive");
   if (n_par <= 0) stop("n_par must be positive");
@@ -51,11 +53,32 @@ NumericMatrix fcs_rcpp_read_data(
   if (con.fail())
     stop("Failed to seek to offset " + std::to_string(byte_offset_i));
 
+  // Column selection: the default (no `selected_cols`) preserves the
+  // original behaviour of materializing every parameter. A supplied vector
+  // of 0-indexed column positions decodes only those columns. Every row is
+  // still read off disk in full — FCS DATA is row-interleaved, so partial-row
+  // seeks would trade one sequential read for many small ones — but bytes
+  // belonging to unselected fields are never cast or written to the output.
+  const bool select_all = selected_cols.isNull();
+  Rcpp::IntegerVector sel;
+  std::vector<int64_t> keep_col;
+  if (!select_all) {
+    sel = selected_cols.get();
+    keep_col.reserve(sel.size());
+    for (R_xlen_t k = 0; k < sel.size(); ++k) {
+      const int64_t idx = static_cast<int64_t>(sel[k]);
+      if (idx < 0 || idx >= n_par_i)
+        stop("selected_cols contains an out-of-range column index: " + std::to_string(idx));
+      keep_col.push_back(idx);
+    }
+  }
+  const int64_t n_out_par = select_all ? n_par_i : static_cast<int64_t>(keep_col.size());
+
   // Allocate only the final double matrix; stream one row of floats at a
   // time through a small reusable scratch buffer instead of materializing
   // the whole float copy of the dataset alongside it. Peak extra memory is
   // now one row (n_par floats) rather than the full dataset.
-  NumericMatrix data_mat(static_cast<int>(n_row_i), static_cast<int>(n_par_i));
+  NumericMatrix data_mat(static_cast<int>(n_row_i), static_cast<int>(n_out_par));
   double* out = data_mat.begin();
 
   std::vector<float> row_buf(static_cast<size_t>(n_par_i));
@@ -79,8 +102,14 @@ NumericMatrix fcs_rcpp_read_data(
       }
     }
 
-    for (int64_t col = 0; col < n_par_i; col++) {
-      out[col * n_row_i + row] = static_cast<double>(row_buf[static_cast<size_t>(col)]);
+    if (select_all) {
+      for (int64_t col = 0; col < n_par_i; col++) {
+        out[col * n_row_i + row] = static_cast<double>(row_buf[static_cast<size_t>(col)]);
+      }
+    } else {
+      for (int64_t out_col = 0; out_col < n_out_par; out_col++) {
+        out[out_col * n_row_i + row] = static_cast<double>(row_buf[static_cast<size_t>(keep_col[out_col])]);
+      }
     }
   }
 
