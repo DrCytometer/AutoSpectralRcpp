@@ -1,5 +1,8 @@
 CXX_STD = CXX17
 
+override CXXFLAGS   = -O3 -Wall
+override CXX17FLAGS = -O3 -Wall
+
 # Portable flags for Windows Rtools
 PKG_CXXFLAGS = $(SHLIB_OPENMP_CXXFLAGS) -DARMA_NO_DEBUG
 

@@ -55,8 +55,8 @@ BEGIN_RCPP
 END_RCPP
 }
 // fcs_rcpp_read_data
-NumericMatrix fcs_rcpp_read_data(const std::string& file_path, double byte_offset, double n_row, double n_par, bool swap);
-RcppExport SEXP _AutoSpectralRcpp_fcs_rcpp_read_data(SEXP file_pathSEXP, SEXP byte_offsetSEXP, SEXP n_rowSEXP, SEXP n_parSEXP, SEXP swapSEXP) {
+NumericMatrix fcs_rcpp_read_data(const std::string& file_path, double byte_offset, double n_row, double n_par, bool swap, Rcpp::Nullable<Rcpp::IntegerVector> selected_cols);
+RcppExport SEXP _AutoSpectralRcpp_fcs_rcpp_read_data(SEXP file_pathSEXP, SEXP byte_offsetSEXP, SEXP n_rowSEXP, SEXP n_parSEXP, SEXP swapSEXP, SEXP selected_colsSEXP) {
 BEGIN_RCPP
     Rcpp::RObject rcpp_result_gen;
     Rcpp::RNGScope rcpp_rngScope_gen;
@@ -65,7 +65,8 @@ BEGIN_RCPP
     Rcpp::traits::input_parameter< double >::type n_row(n_rowSEXP);
     Rcpp::traits::input_parameter< double >::type n_par(n_parSEXP);
     Rcpp::traits::input_parameter< bool >::type swap(swapSEXP);
-    rcpp_result_gen = Rcpp::wrap(fcs_rcpp_read_data(file_path, byte_offset, n_row, n_par, swap));
+    Rcpp::traits::input_parameter< Rcpp::Nullable<Rcpp::IntegerVector> >::type selected_cols(selected_colsSEXP);
+    rcpp_result_gen = Rcpp::wrap(fcs_rcpp_read_data(file_path, byte_offset, n_row, n_par, swap, selected_cols));
     return rcpp_result_gen;
 END_RCPP
 }
@@ -105,6 +106,22 @@ BEGIN_RCPP
     Rcpp::traits::input_parameter< NumericMatrix >::type z(zSEXP);
     Rcpp::traits::input_parameter< int >::type neigh_size(neigh_sizeSEXP);
     rcpp_result_gen = Rcpp::wrap(find_local_maxima(z, neigh_size));
+    return rcpp_result_gen;
+END_RCPP
+}
+// fix_huber_slope_rcpp
+NumericVector fix_huber_slope_rcpp(NumericVector x, NumericVector y, double k, int max_iter, double tol, Rcpp::Nullable<NumericVector> start);
+RcppExport SEXP _AutoSpectralRcpp_fix_huber_slope_rcpp(SEXP xSEXP, SEXP ySEXP, SEXP kSEXP, SEXP max_iterSEXP, SEXP tolSEXP, SEXP startSEXP) {
+BEGIN_RCPP
+    Rcpp::RObject rcpp_result_gen;
+    Rcpp::RNGScope rcpp_rngScope_gen;
+    Rcpp::traits::input_parameter< NumericVector >::type x(xSEXP);
+    Rcpp::traits::input_parameter< NumericVector >::type y(ySEXP);
+    Rcpp::traits::input_parameter< double >::type k(kSEXP);
+    Rcpp::traits::input_parameter< int >::type max_iter(max_iterSEXP);
+    Rcpp::traits::input_parameter< double >::type tol(tolSEXP);
+    Rcpp::traits::input_parameter< Rcpp::Nullable<NumericVector> >::type start(startSEXP);
+    rcpp_result_gen = Rcpp::wrap(fix_huber_slope_rcpp(x, y, k, max_iter, tol, start));
     return rcpp_result_gen;
 END_RCPP
 }
@@ -207,12 +224,12 @@ BEGIN_RCPP
 END_RCPP
 }
 // unmix_autospectral_joint_cpp
-arma::mat unmix_autospectral_joint_cpp(arma::mat raw_data_in, const arma::mat& spectra, const arma::mat& af_spectra, const CharacterVector& fluor_names, const arma::vec& pos_thresholds, const List& variants_list, const List& delta_list, int n_passes, int n_threads, bool cell_weight, Rcpp::Nullable<Rcpp::NumericVector> noise_floor, double alpha, double collinear_thresh, bool joint_pair_resolution, int n_af_passes, double refine_af_quantile);
+arma::mat unmix_autospectral_joint_cpp(const arma::mat& raw_data_in, const arma::mat& spectra, const arma::mat& af_spectra, const CharacterVector& fluor_names, const arma::vec& pos_thresholds, const List& variants_list, const List& delta_list, int n_passes, int n_threads, bool cell_weight, Rcpp::Nullable<Rcpp::NumericVector> noise_floor, double alpha, double collinear_thresh, bool joint_pair_resolution, int n_af_passes, double refine_af_quantile);
 RcppExport SEXP _AutoSpectralRcpp_unmix_autospectral_joint_cpp(SEXP raw_data_inSEXP, SEXP spectraSEXP, SEXP af_spectraSEXP, SEXP fluor_namesSEXP, SEXP pos_thresholdsSEXP, SEXP variants_listSEXP, SEXP delta_listSEXP, SEXP n_passesSEXP, SEXP n_threadsSEXP, SEXP cell_weightSEXP, SEXP noise_floorSEXP, SEXP alphaSEXP, SEXP collinear_threshSEXP, SEXP joint_pair_resolutionSEXP, SEXP n_af_passesSEXP, SEXP refine_af_quantileSEXP) {
 BEGIN_RCPP
     Rcpp::RObject rcpp_result_gen;
     Rcpp::RNGScope rcpp_rngScope_gen;
-    Rcpp::traits::input_parameter< arma::mat >::type raw_data_in(raw_data_inSEXP);
+    Rcpp::traits::input_parameter< const arma::mat& >::type raw_data_in(raw_data_inSEXP);
     Rcpp::traits::input_parameter< const arma::mat& >::type spectra(spectraSEXP);
     Rcpp::traits::input_parameter< const arma::mat& >::type af_spectra(af_spectraSEXP);
     Rcpp::traits::input_parameter< const CharacterVector& >::type fluor_names(fluor_namesSEXP);
@@ -233,12 +250,12 @@ BEGIN_RCPP
 END_RCPP
 }
 // unmix_autospectral_pipeline_cpp
-arma::mat unmix_autospectral_pipeline_cpp(arma::mat raw_data_in, const arma::mat& spectra, const arma::mat& af_spectra, const CharacterVector& fluor_names, const CharacterVector& optimize_fluors, const arma::vec& pos_thresholds, const List& variants, const List& delta_list, const List& delta_norms, int k_opt, int n_threads, bool optimize, bool use_dist0);
+arma::mat unmix_autospectral_pipeline_cpp(const arma::mat& raw_data_in, const arma::mat& spectra, const arma::mat& af_spectra, const CharacterVector& fluor_names, const CharacterVector& optimize_fluors, const arma::vec& pos_thresholds, const List& variants, const List& delta_list, const List& delta_norms, int k_opt, int n_threads, bool optimize, bool use_dist0);
 RcppExport SEXP _AutoSpectralRcpp_unmix_autospectral_pipeline_cpp(SEXP raw_data_inSEXP, SEXP spectraSEXP, SEXP af_spectraSEXP, SEXP fluor_namesSEXP, SEXP optimize_fluorsSEXP, SEXP pos_thresholdsSEXP, SEXP variantsSEXP, SEXP delta_listSEXP, SEXP delta_normsSEXP, SEXP k_optSEXP, SEXP n_threadsSEXP, SEXP optimizeSEXP, SEXP use_dist0SEXP) {
 BEGIN_RCPP
     Rcpp::RObject rcpp_result_gen;
     Rcpp::RNGScope rcpp_rngScope_gen;
-    Rcpp::traits::input_parameter< arma::mat >::type raw_data_in(raw_data_inSEXP);
+    Rcpp::traits::input_parameter< const arma::mat& >::type raw_data_in(raw_data_inSEXP);
     Rcpp::traits::input_parameter< const arma::mat& >::type spectra(spectraSEXP);
     Rcpp::traits::input_parameter< const arma::mat& >::type af_spectra(af_spectraSEXP);
     Rcpp::traits::input_parameter< const CharacterVector& >::type fluor_names(fluor_namesSEXP);
@@ -260,10 +277,11 @@ static const R_CallMethodDef CallEntries[] = {
     {"_AutoSpectralRcpp_assign_af_fluor", (DL_FUNC) &_AutoSpectralRcpp_assign_af_fluor, 4},
     {"_AutoSpectralRcpp_bin_matrix_cpp", (DL_FUNC) &_AutoSpectralRcpp_bin_matrix_cpp, 3},
     {"_AutoSpectralRcpp_fast_kde2d_cpp", (DL_FUNC) &_AutoSpectralRcpp_fast_kde2d_cpp, 6},
-    {"_AutoSpectralRcpp_fcs_rcpp_read_data", (DL_FUNC) &_AutoSpectralRcpp_fcs_rcpp_read_data, 5},
+    {"_AutoSpectralRcpp_fcs_rcpp_read_data", (DL_FUNC) &_AutoSpectralRcpp_fcs_rcpp_read_data, 6},
     {"_AutoSpectralRcpp_fcs_rcpp_write_data", (DL_FUNC) &_AutoSpectralRcpp_fcs_rcpp_write_data, 5},
     {"_AutoSpectralRcpp_filter_contaminant_events_cpp", (DL_FUNC) &_AutoSpectralRcpp_filter_contaminant_events_cpp, 3},
     {"_AutoSpectralRcpp_find_local_maxima", (DL_FUNC) &_AutoSpectralRcpp_find_local_maxima, 2},
+    {"_AutoSpectralRcpp_fix_huber_slope_rcpp", (DL_FUNC) &_AutoSpectralRcpp_fix_huber_slope_rcpp, 6},
     {"_AutoSpectralRcpp_optimize_unmix", (DL_FUNC) &_AutoSpectralRcpp_optimize_unmix, 12},
     {"_AutoSpectralRcpp_poisson_irls_rcpp_parallel", (DL_FUNC) &_AutoSpectralRcpp_poisson_irls_rcpp_parallel, 8},
     {"_AutoSpectralRcpp_som_train_batch_cpp", (DL_FUNC) &_AutoSpectralRcpp_som_train_batch_cpp, 6},
