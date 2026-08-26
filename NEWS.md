@@ -1,3 +1,14 @@
+# AutoSpectralRcpp 1.2.2 (2026-08-26)
+
+## New features
+- Hand-rolled Huber slope robust linear modelling to support adaptive unmixing.
+
+## Improvements
+- Faster FCS reading with reduced memory usage thanks to tips from Paul Heisig.
+- Faster unmixing with reduced memory usage thanks to tips from Paul Heisig.
+- Set "-O3" flag for C++ compiler to speed up processing.
+
+
 # AutoSpectralRcpp 1.2.1 (2026-08-04)
 
 ## Bug fixes

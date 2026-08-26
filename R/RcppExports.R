@@ -38,8 +38,8 @@ fast_kde2d_cpp <- function(x, y, n, h, x_limits, y_limits) {
     .Call(`_AutoSpectralRcpp_fast_kde2d_cpp`, x, y, n, h, x_limits, y_limits)
 }
 
-fcs_rcpp_read_data <- function(file_path, byte_offset, n_row, n_par, swap) {
-    .Call(`_AutoSpectralRcpp_fcs_rcpp_read_data`, file_path, byte_offset, n_row, n_par, swap)
+fcs_rcpp_read_data <- function(file_path, byte_offset, n_row, n_par, swap, selected_cols = NULL) {
+    .Call(`_AutoSpectralRcpp_fcs_rcpp_read_data`, file_path, byte_offset, n_row, n_par, swap, selected_cols)
 }
 
 fcs_rcpp_write_data <- function(file_path, header, text_segment, data_mat, swap) {
@@ -74,6 +74,41 @@ filter_contaminant_events_cpp <- function(event_mat, spectra_mat, threshold) {
 #' @export
 find_local_maxima <- function(z, neigh_size) {
     .Call(`_AutoSpectralRcpp_find_local_maxima`, z, neigh_size)
+}
+
+#' Huber-Weighted IRLS Slope (C++)
+#'
+#' @description
+#' Line-for-line port of AutoSpectral's `.fix.huber.slope()`
+#' (fix_my_unmix.R): a Huber-weighted, iteratively reweighted least squares
+#' fit of `y` on `x`, one predictor with an intercept. Every step is the
+#' same closed-form weighted mean/variance update the R version uses - no
+#' BLAS call here either, only the iteration loop and the two `median()`
+#' calls per iteration moving out of the R interpreter, which is what
+#' `.fix.envelope.slope()`'s call volume (every panel pair, every mask
+#' pass, every spillover-estimator iteration, every inner-loop pass) makes
+#' worth paying for. All scratch buffers are allocated once, outside the
+#' iteration loop, and reused every iteration.
+#'
+#' On non-convergence this returns a zero slope rather than falling back to
+#' OLS, matching the R version: a coefficient this function cannot pin down
+#' is exactly the case the caller needs to see as untrustworthy.
+#'
+#' @param x,y Numeric vectors, the predictor and response. Must be the same
+#'   length.
+#' @param k Numeric, the Huber tuning constant. Default `1.345`.
+#' @param max_iter Integer, maximum IRLS iterations. Default `100`.
+#' @param tol Numeric, relative coefficient-change convergence tolerance.
+#'   Default `1e-4`.
+#' @param start Optional numeric vector `c(intercept, slope)`, a warm
+#'   start. When supplied, the first iteration's weights come from its
+#'   residuals instead of OLS weights. Default `NULL`.
+#'
+#' @return Numeric vector `c(intercept, slope)`.
+#'
+#' @export
+fix_huber_slope_rcpp <- function(x, y, k = 1.345, max_iter = 100L, tol = 1e-4, start = NULL) {
+    .Call(`_AutoSpectralRcpp_fix_huber_slope_rcpp`, x, y, k, max_iter, tol, start)
 }
 
 optimize_unmix <- function(raw_data, unmixed_init, base_spectra, pos_thresholds, fluor_names, optimize_fluors, all_fluorophores, variants, delta_list, delta_norms, k = 10L, nthreads = 1L) {
