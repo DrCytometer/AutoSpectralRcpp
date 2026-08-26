@@ -178,7 +178,7 @@ readFCS <- function(
   }
 
   # --- 4. Read binary data via C++ -------------------------------------------
-  data.mat <- fcs_rcpp_read_data_test(
+  data.mat <- fcs_rcpp_read_data(
     file_path     = fcs.path,
     byte_offset   = byte.offset,
     n_row         = num.rows.to.read,

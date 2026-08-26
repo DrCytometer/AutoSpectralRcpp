@@ -4,7 +4,13 @@
 \alias{readFCS}
 \title{Read FCS File (Rcpp-accelerated)}
 \usage{
-readFCS(fcs.path, return.keywords = FALSE, start.row = NULL, end.row = NULL)
+readFCS(
+  fcs.path,
+  return.keywords = FALSE,
+  start.row = NULL,
+  end.row = NULL,
+  columns = NULL
+)
 }
 \arguments{
 \item{fcs.path}{A character string specifying the file path for the .fcs
@@ -19,6 +25,13 @@ returns a list with elements \code{data} (the expression matrix) and
 
 \item{end.row}{Optional numeric. Last event (row) to read. Default
 \code{NULL} reads to the last event.}
+
+\item{columns}{Optional character vector of \code{$PnN} channel names to
+read. Default \code{NULL} reads and returns every channel (unchanged
+behaviour). Supplying a subset avoids decoding and materializing columns
+that will be discarded immediately afterward -- useful for wide panels
+(e.g. ID7000, Xenith) where only spectral + a few passthrough channels
+are actually needed.}
 }
 \value{
 If \code{return.keywords = FALSE} (default): a numeric matrix with
