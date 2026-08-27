@@ -8,6 +8,12 @@
 - Faster unmixing with reduced memory usage thanks to tips from Paul Heisig.
 - Set "-O3" flag for C++ compiler to speed up processing.
 
+## Bug fixes
+- Fixed issue causing divergence in some events when running `unmix.poisson.fast()`.
+Briefly, the weights could collapse to infinity, and are now clamped to the
+approximate noise floor. Additional issues with tracking convergence and fallback
+are fixed.
+
 
 # AutoSpectralRcpp 1.2.1 (2026-08-04)
 

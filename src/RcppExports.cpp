@@ -109,6 +109,28 @@ BEGIN_RCPP
     return rcpp_result_gen;
 END_RCPP
 }
+// fix_envelope_truncated_batch_rcpp
+List fix_envelope_truncated_batch_rcpp(NumericVector x, NumericMatrix Y, NumericMatrix Threshold_target, NumericVector start_slope, double max_coefficient, int max_mask_passes, double mask_tolerance, int min_events, double k, int max_iter, double tol, int n_threads);
+RcppExport SEXP _AutoSpectralRcpp_fix_envelope_truncated_batch_rcpp(SEXP xSEXP, SEXP YSEXP, SEXP Threshold_targetSEXP, SEXP start_slopeSEXP, SEXP max_coefficientSEXP, SEXP max_mask_passesSEXP, SEXP mask_toleranceSEXP, SEXP min_eventsSEXP, SEXP kSEXP, SEXP max_iterSEXP, SEXP tolSEXP, SEXP n_threadsSEXP) {
+BEGIN_RCPP
+    Rcpp::RObject rcpp_result_gen;
+    Rcpp::RNGScope rcpp_rngScope_gen;
+    Rcpp::traits::input_parameter< NumericVector >::type x(xSEXP);
+    Rcpp::traits::input_parameter< NumericMatrix >::type Y(YSEXP);
+    Rcpp::traits::input_parameter< NumericMatrix >::type Threshold_target(Threshold_targetSEXP);
+    Rcpp::traits::input_parameter< NumericVector >::type start_slope(start_slopeSEXP);
+    Rcpp::traits::input_parameter< double >::type max_coefficient(max_coefficientSEXP);
+    Rcpp::traits::input_parameter< int >::type max_mask_passes(max_mask_passesSEXP);
+    Rcpp::traits::input_parameter< double >::type mask_tolerance(mask_toleranceSEXP);
+    Rcpp::traits::input_parameter< int >::type min_events(min_eventsSEXP);
+    Rcpp::traits::input_parameter< double >::type k(kSEXP);
+    Rcpp::traits::input_parameter< int >::type max_iter(max_iterSEXP);
+    Rcpp::traits::input_parameter< double >::type tol(tolSEXP);
+    Rcpp::traits::input_parameter< int >::type n_threads(n_threadsSEXP);
+    rcpp_result_gen = Rcpp::wrap(fix_envelope_truncated_batch_rcpp(x, Y, Threshold_target, start_slope, max_coefficient, max_mask_passes, mask_tolerance, min_events, k, max_iter, tol, n_threads));
+    return rcpp_result_gen;
+END_RCPP
+}
 // fix_huber_slope_rcpp
 NumericVector fix_huber_slope_rcpp(NumericVector x, NumericVector y, double k, int max_iter, double tol, Rcpp::Nullable<NumericVector> start);
 RcppExport SEXP _AutoSpectralRcpp_fix_huber_slope_rcpp(SEXP xSEXP, SEXP ySEXP, SEXP kSEXP, SEXP max_iterSEXP, SEXP tolSEXP, SEXP startSEXP) {
@@ -148,8 +170,8 @@ BEGIN_RCPP
 END_RCPP
 }
 // poisson_irls_rcpp_parallel
-arma::mat poisson_irls_rcpp_parallel(const arma::mat& raw_data_in, const arma::mat& spectra, const arma::mat& beta_init_in, const int maxit, const double tol, const int n_threads, const double divergence_threshold, const int max_halving_steps);
-RcppExport SEXP _AutoSpectralRcpp_poisson_irls_rcpp_parallel(SEXP raw_data_inSEXP, SEXP spectraSEXP, SEXP beta_init_inSEXP, SEXP maxitSEXP, SEXP tolSEXP, SEXP n_threadsSEXP, SEXP divergence_thresholdSEXP, SEXP max_halving_stepsSEXP) {
+Rcpp::List poisson_irls_rcpp_parallel(const arma::mat& raw_data_in, const arma::mat& spectra, const arma::mat& beta_init_in, const int maxit, const double tol, const int n_threads, const double divergence_threshold, const int max_halving_steps, Rcpp::Nullable<Rcpp::NumericVector> noise_floor, const double final_validation_ratio);
+RcppExport SEXP _AutoSpectralRcpp_poisson_irls_rcpp_parallel(SEXP raw_data_inSEXP, SEXP spectraSEXP, SEXP beta_init_inSEXP, SEXP maxitSEXP, SEXP tolSEXP, SEXP n_threadsSEXP, SEXP divergence_thresholdSEXP, SEXP max_halving_stepsSEXP, SEXP noise_floorSEXP, SEXP final_validation_ratioSEXP) {
 BEGIN_RCPP
     Rcpp::RObject rcpp_result_gen;
     Rcpp::RNGScope rcpp_rngScope_gen;
@@ -161,7 +183,9 @@ BEGIN_RCPP
     Rcpp::traits::input_parameter< const int >::type n_threads(n_threadsSEXP);
     Rcpp::traits::input_parameter< const double >::type divergence_threshold(divergence_thresholdSEXP);
     Rcpp::traits::input_parameter< const int >::type max_halving_steps(max_halving_stepsSEXP);
-    rcpp_result_gen = Rcpp::wrap(poisson_irls_rcpp_parallel(raw_data_in, spectra, beta_init_in, maxit, tol, n_threads, divergence_threshold, max_halving_steps));
+    Rcpp::traits::input_parameter< Rcpp::Nullable<Rcpp::NumericVector> >::type noise_floor(noise_floorSEXP);
+    Rcpp::traits::input_parameter< const double >::type final_validation_ratio(final_validation_ratioSEXP);
+    rcpp_result_gen = Rcpp::wrap(poisson_irls_rcpp_parallel(raw_data_in, spectra, beta_init_in, maxit, tol, n_threads, divergence_threshold, max_halving_steps, noise_floor, final_validation_ratio));
     return rcpp_result_gen;
 END_RCPP
 }
@@ -281,9 +305,10 @@ static const R_CallMethodDef CallEntries[] = {
     {"_AutoSpectralRcpp_fcs_rcpp_write_data", (DL_FUNC) &_AutoSpectralRcpp_fcs_rcpp_write_data, 5},
     {"_AutoSpectralRcpp_filter_contaminant_events_cpp", (DL_FUNC) &_AutoSpectralRcpp_filter_contaminant_events_cpp, 3},
     {"_AutoSpectralRcpp_find_local_maxima", (DL_FUNC) &_AutoSpectralRcpp_find_local_maxima, 2},
+    {"_AutoSpectralRcpp_fix_envelope_truncated_batch_rcpp", (DL_FUNC) &_AutoSpectralRcpp_fix_envelope_truncated_batch_rcpp, 12},
     {"_AutoSpectralRcpp_fix_huber_slope_rcpp", (DL_FUNC) &_AutoSpectralRcpp_fix_huber_slope_rcpp, 6},
     {"_AutoSpectralRcpp_optimize_unmix", (DL_FUNC) &_AutoSpectralRcpp_optimize_unmix, 12},
-    {"_AutoSpectralRcpp_poisson_irls_rcpp_parallel", (DL_FUNC) &_AutoSpectralRcpp_poisson_irls_rcpp_parallel, 8},
+    {"_AutoSpectralRcpp_poisson_irls_rcpp_parallel", (DL_FUNC) &_AutoSpectralRcpp_poisson_irls_rcpp_parallel, 10},
     {"_AutoSpectralRcpp_som_train_batch_cpp", (DL_FUNC) &_AutoSpectralRcpp_som_train_batch_cpp, 6},
     {"_AutoSpectralRcpp_map_data_to_codes_cpp", (DL_FUNC) &_AutoSpectralRcpp_map_data_to_codes_cpp, 4},
     {"_AutoSpectralRcpp_unmix_af_fluorophores", (DL_FUNC) &_AutoSpectralRcpp_unmix_af_fluorophores, 4},

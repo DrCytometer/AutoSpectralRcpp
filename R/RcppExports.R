@@ -76,6 +76,71 @@ find_local_maxima <- function(z, neigh_size) {
     .Call(`_AutoSpectralRcpp_find_local_maxima`, z, neigh_size)
 }
 
+#' Batched Truncated Spillover Slope, One Source Against Every Target (C++)
+#'
+#' @description
+#' Port of the truncated-estimator half of `.fix.envelope.slope()` --
+#' `select.negative()` plus the `max.mask.passes` refinement loop plus
+#' `.fix.huber.slope()` -- run for every target sharing one source's
+#' abundance in a single call, instead of once per (source, target) pair.
+#'
+#' Every working buffer (`w`, `resid`, the selection-index scratch space) is
+#' allocated once, sized to `n`, and reused across every target and every
+#' mask pass; only the `ni <= n` elements actually selected for a given
+#' target's current pass are touched. This is the piece that a batched pure-R
+#' implementation cannot get right no matter how it is vectorised: R's
+#' `sweep()` / `outer()` return fresh objects every call, so a version built
+#' from them reallocates matrices sized to the full working set on every one
+#' of up to `targets x mask.passes x irls.iterations` steps, several times
+#' over. Batching only pays off once that allocation, and the two
+#' `stats::median()` calls' R-level dispatch per iteration, are removed
+#' entirely -- which needs compiled code, not a different R vectorisation.
+#'
+#' Deliberately does not reproduce `select.negative()`'s bulk subsample when
+#' the negative population exceeds `max.truncated.events`; it fits the whole
+#' negative-selected population instead. Per the R version's own comment,
+#' the bulk sits at the origin and carries no leverage on the slope, so this
+#' is expected to be at least as accurate, not an approximation of it -- but
+#' it means a run against a call where subsampling would have triggered will
+#' not be bit-identical to `.fix.envelope.slope()`, only equivalent.
+#'
+#' @param x Numeric vector, length `n`, the shared source abundance.
+#' @param Y Numeric matrix, `n x m`, one column per target.
+#' @param Threshold_target Numeric matrix, `n x m`, per-event per-target
+#'   positivity boundary.
+#' @param start_slope Numeric vector, length `m`, per-target warm starts.
+#' @param max_coefficient double, largest accepted residual coefficient.
+#'   Default `0.2`.
+#' @param max_mask_passes int, refinement passes after the initial fit.
+#'   Default `3`.
+#' @param mask_tolerance double, relative change below which a pass is
+#'   treated as settled and refinement stops early. Default `0.05`.
+#' @param min_events int, minimum selected events for a fit. Default `200`.
+#' @param k double, Huber tuning constant. Default `1.345`.
+#' @param max_iter int, maximum IRLS iterations per fit. Default `100`.
+#' @param tol double, IRLS relative coefficient-change tolerance. Default
+#'   `1e-4`.
+#' @param n_threads int, OpenMP threads to split targets across. Default
+#'   `1` (serial). Every target's fit reads only its own column of `Y` and
+#'   `Threshold_target` and writes only its own output slot, so this is
+#'   embarrassingly parallel across targets -- but only raise it when this
+#'   call is not itself already running inside another parallel context
+#'   (`mclapply()` over samples, say). Oversubscribing cores that way is
+#'   the same failure mode `RhpcBLASctl::blas_set_num_threads(1)` already
+#'   guards against for BLAS inside forked workers elsewhere in this
+#'   package -- one source of truth for how many cores are in play at a
+#'   time, not two competing ones.
+#'
+#' @return A list with `slope` (numeric, length `m`, `NA` where the selected
+#'   population never reached `min_events`) and `n` (integer, length `m`,
+#'   the final pass's selected event count, for `span`/diagnostic use back
+#'   in R).
+#'
+#' @export
+fix_envelope_truncated_batch_rcpp <- function(x, Y, Threshold_target, start_slope, max_coefficient = 0.2, max_mask_passes = 3L, mask_tolerance = 0.05, min_events = 200L, k = 1.345, max_iter = 100L, tol = 1e-4, n_threads = 1L) {
+    .Call(`_AutoSpectralRcpp_fix_envelope_truncated_batch_rcpp`, x, Y, Threshold_target, start_slope, max_coefficient, max_mask_passes, mask_tolerance, min_events, k, max_iter, tol, n_threads)
+}
+
 #' Huber-Weighted IRLS Slope (C++)
 #'
 #' @description
@@ -115,8 +180,36 @@ optimize_unmix <- function(raw_data, unmixed_init, base_spectra, pos_thresholds,
     .Call(`_AutoSpectralRcpp_optimize_unmix`, raw_data, unmixed_init, base_spectra, pos_thresholds, fluor_names, optimize_fluors, all_fluorophores, variants, delta_list, delta_norms, k, nthreads)
 }
 
-poisson_irls_rcpp_parallel <- function(raw_data_in, spectra, beta_init_in, maxit = 25L, tol = 1e-6, n_threads = 1L, divergence_threshold = 1e4, max_halving_steps = 20L) {
-    .Call(`_AutoSpectralRcpp_poisson_irls_rcpp_parallel`, raw_data_in, spectra, beta_init_in, maxit, tol, n_threads, divergence_threshold, max_halving_steps)
+#' Poisson IRLS Parallel
+#'
+#' @export
+#' @param raw_data_in matrix of cells x detectors
+#' @param spectra matrix of fluorophores x detectors
+#' @param beta_init_in initial unmixed matrix of cells x fluorophores
+#' @param maxit maximum number of IRLS iterations
+#' @param tol convergence tolerance
+#' @param n_threads number of threads to use (OpenMP)
+#' @param divergence_threshold maximum ratio of a cell's deviance to its
+#' initial (WLS-seeded) deviance before that iteration is treated as
+#' divergent and the cell reverts towards `beta_init`
+#' @param max_halving_steps maximum number of halving steps to use to approach
+#' convergence
+#' @param noise_floor Numeric scalar or per-detector vector, default `125`.
+#' Lower clamp on the denominator of the IRLS weight, preventing
+#' \eqn{w_d \to \infty} for near-dark channels. Signal units, same
+#' convention as `noise.floor` elsewhere in the package.
+#' @param final_validation_ratio Numeric, default `1.5`. A cell's final
+#' deviance is allowed to exceed its initial (WLS-seeded) deviance by at
+#' most this multiple before the cell is reverted to `beta_init`.
+#' @return A list with `beta` (matrix of cells x fluorophores) and
+#' `converged` (numeric vector, one entry per cell: `0` converged within
+#' `tol`, `1` reverted mid-loop due to divergence, `2` reverted because the
+#' final fit produced an invalid (near-zero or negative) predicted mean,
+#' `3` reverted because final deviance exceeded `final_validation_ratio`
+#' times initial deviance, `4` reached `maxit` without meeting `tol` but the
+#' last accepted step was kept)
+poisson_irls_rcpp_parallel <- function(raw_data_in, spectra, beta_init_in, maxit = 25L, tol = 1e-6, n_threads = 1L, divergence_threshold = 1e4, max_halving_steps = 20L, noise_floor = NULL, final_validation_ratio = 1.5) {
+    .Call(`_AutoSpectralRcpp_poisson_irls_rcpp_parallel`, raw_data_in, spectra, beta_init_in, maxit, tol, n_threads, divergence_threshold, max_halving_steps, noise_floor, final_validation_ratio)
 }
 
 #' Train a Self-Organizing Map with batch updates (OpenMP-accelerated)
