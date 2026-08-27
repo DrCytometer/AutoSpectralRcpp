@@ -18,20 +18,28 @@
 #' numbers Will converge faster; smaller numbers may improve convergence.
 #' @param n_threads Numeric. Number of parallel processes to be used in C++.
 #' Recommended is `asp$worker.process.n` (or one less than `availableCores()` ).
-#' @param divergence.threshold Numeric. Threshold for reversion to the initial
-#' WLS unmixing for any point that changes dramatically during Poisson IRLS.
-#' Default is `1e4`.
-#' @param divergence.handling String. How to handle divergent cells from Poisson
-#' IRLS. Options are `NonNeg` (non-negativity will be enforced), `WLS` (revert
-#' to WLS intial unmix) or `Balance` (`WLS` and `NonNeg` will be averaged).
+#' @param divergence.threshold Numeric. Maximum allowed ratio of a cell's
+#' current deviance to its initial (WLS-seeded) deviance before that cell is
+#' treated as divergent mid-iteration and reverted towards its WLS estimate.
+#' Default is `10`.
+#' @param divergence.handling String. How to handle cells flagged as
+#' non-convergent (reverted or stalled) by the C++ IRLS. Options are `NonNeg`
+#' (negative components of the returned estimate are clamped to zero), `WLS`
+#' (the cell is replaced entirely by its WLS initial estimate) or `Balance`
+#' (a weighted average of the WLS estimate and the returned estimate).
 #' Default is `Balance`.
-#' @param balance.weight Numeric. Weighting to average non-convergent cells.
-#' Used for `Balance` option under `divergence.handling` Default is `0.5`.
+#' @param balance.weight Numeric. Weight given to the WLS estimate when
+#' averaging under `Balance`; `1 - balance.weight` is given to the returned
+#' IRLS estimate. Used only when `divergence.handling = "Balance"`. Default
+#' is `0.5`.
+#' @param noise.floor Numeric scalar or per-detector vector, default `125`.
+#' Lower clamp on the denominator of the IRLS weight, preventing the weight
+#' on near-dark channels from growing without bound. Signal units, same
+#' convention as `noise.floor` elsewhere in the package.
 #'
 #' @return Matrix of unmixed fluorophore intensities
 #'
 #' @export
-
 
 unmix.poisson.fast <- function(
     raw.data,
@@ -40,9 +48,10 @@ unmix.poisson.fast <- function(
     maxit = 100,
     tol = 1e-6,
     n_threads = 0,
-    divergence.threshold = 1e4,
+    divergence.threshold = 10,
     divergence.handling = "Balance",
-    balance.weight = 0.5
+    balance.weight = 0.5,
+    noise.floor = 125
 ) {
 
   # safety checks on inputs so we don't crash when calling C++
@@ -72,29 +81,36 @@ unmix.poisson.fast <- function(
   spectra[ spectra <= 0 ] <- 1e-6
 
   # WLS initial unmixing
-  wls.unmix <- unmix.wls.fast( raw.data, spectra, weights )
+  wls.unmix <- unmix.wls.fast( raw.data, spectra, weights, noise.floor = noise.floor )
   beta.init <- wls.unmix
-  #beta.init[ beta.init <= 0 ] <- 1e-6
 
   # call fast C++ IRLS
-  unmixed <- poisson_irls_rcpp_parallel(
+  irls.result <- poisson_irls_rcpp_parallel(
     raw_data = raw.data,
     spectra = spectra,
     beta_init = beta.init,
     maxit = maxit,
     tol = tol,
     n_threads = n_threads,
-    divergence_threshold = divergence.threshold
+    divergence_threshold = divergence.threshold,
+    noise_floor = noise.floor
   )
 
-  # check for nonconvergent points from C++ unmixing and revert towards WLS
-  non.convergent <- which( unmixed == 1e-6, arr.ind = TRUE )
+  unmixed <- irls.result$beta
+
+  # cells the C++ side flagged as reverted (divergence or failed final
+  # validation) or stalled (hit maxit without meeting tol)
+  non.convergent <- which( irls.result$converged != 0 )
 
   if ( divergence.handling == "Balance" ) {
     unmixed[ non.convergent, ] <- balance.weight*wls.unmix[ non.convergent, ] +
       ( 1 - balance.weight )*unmixed[ non.convergent, ]
   } else if ( divergence.handling == "WLS" ) {
     unmixed[ non.convergent, ] <- wls.unmix[ non.convergent, ]
+  } else if ( divergence.handling == "NonNeg" ) {
+    reverted.sub <- unmixed[ non.convergent, , drop = FALSE ]
+    reverted.sub[ reverted.sub < 0 ] <- 0
+    unmixed[ non.convergent, ] <- reverted.sub
   }
 
   colnames( unmixed ) <- rownames( spectra )

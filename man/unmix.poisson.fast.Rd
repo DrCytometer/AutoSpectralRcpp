@@ -11,9 +11,10 @@ unmix.poisson.fast(
   maxit = 100,
   tol = 1e-06,
   n_threads = 0,
-  divergence.threshold = 10000,
+  divergence.threshold = 10,
   divergence.handling = "Balance",
-  balance.weight = 0.5
+  balance.weight = 0.5,
+  noise.floor = 125
 )
 }
 \arguments{
@@ -34,17 +35,27 @@ numbers Will converge faster; smaller numbers may improve convergence.}
 \item{n_threads}{Numeric. Number of parallel processes to be used in C++.
 Recommended is \code{asp$worker.process.n} (or one less than \code{availableCores()} ).}
 
-\item{divergence.threshold}{Numeric. Threshold for reversion to the initial
-WLS unmixing for any point that changes dramatically during Poisson IRLS.
-Default is \code{1e4}.}
+\item{divergence.threshold}{Numeric. Maximum allowed ratio of a cell's
+current deviance to its initial (WLS-seeded) deviance before that cell is
+treated as divergent mid-iteration and reverted towards its WLS estimate.
+Default is \code{10}.}
 
-\item{divergence.handling}{String. How to handle divergent cells from Poisson
-IRLS. Options are \code{NonNeg} (non-negativity will be enforced), \code{WLS} (revert
-to WLS intial unmix) or \code{Balance} (\code{WLS} and \code{NonNeg} will be averaged).
+\item{divergence.handling}{String. How to handle cells flagged as
+non-convergent (reverted or stalled) by the C++ IRLS. Options are \code{NonNeg}
+(negative components of the returned estimate are clamped to zero), \code{WLS}
+(the cell is replaced entirely by its WLS initial estimate) or \code{Balance}
+(a weighted average of the WLS estimate and the returned estimate).
 Default is \code{Balance}.}
 
-\item{balance.weight}{Numeric. Weighting to average non-convergent cells.
-Used for \code{Balance} option under \code{divergence.handling} Default is \code{0.5}.}
+\item{balance.weight}{Numeric. Weight given to the WLS estimate when
+averaging under \code{Balance}; \code{1 - balance.weight} is given to the returned
+IRLS estimate. Used only when \code{divergence.handling = "Balance"}. Default
+is \code{0.5}.}
+
+\item{noise.floor}{Numeric scalar or per-detector vector, default \code{125}.
+Lower clamp on the denominator of the IRLS weight, preventing the weight
+on near-dark channels from growing without bound. Signal units, same
+convention as \code{noise.floor} elsewhere in the package.}
 }
 \value{
 Matrix of unmixed fluorophore intensities
