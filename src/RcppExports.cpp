@@ -110,24 +110,27 @@ BEGIN_RCPP
 END_RCPP
 }
 // fix_envelope_truncated_batch_rcpp
-List fix_envelope_truncated_batch_rcpp(NumericVector x, NumericMatrix Y, NumericMatrix Threshold_target, NumericVector start_slope, double max_coefficient, int max_mask_passes, double mask_tolerance, int min_events, double k, int max_iter, double tol, int n_threads);
-RcppExport SEXP _AutoSpectralRcpp_fix_envelope_truncated_batch_rcpp(SEXP xSEXP, SEXP YSEXP, SEXP Threshold_targetSEXP, SEXP start_slopeSEXP, SEXP max_coefficientSEXP, SEXP max_mask_passesSEXP, SEXP mask_toleranceSEXP, SEXP min_eventsSEXP, SEXP kSEXP, SEXP max_iterSEXP, SEXP tolSEXP, SEXP n_threadsSEXP) {
+List fix_envelope_truncated_batch_rcpp(NumericVector x, NumericMatrix Y, NumericMatrix Threshold_target, NumericVector threshold_source, NumericVector start_slope, IntegerVector seed, double max_coefficient, int max_mask_passes, double mask_tolerance, int min_events, int max_truncated_events, double k, int max_iter, double tol, int n_threads);
+RcppExport SEXP _AutoSpectralRcpp_fix_envelope_truncated_batch_rcpp(SEXP xSEXP, SEXP YSEXP, SEXP Threshold_targetSEXP, SEXP threshold_sourceSEXP, SEXP start_slopeSEXP, SEXP seedSEXP, SEXP max_coefficientSEXP, SEXP max_mask_passesSEXP, SEXP mask_toleranceSEXP, SEXP min_eventsSEXP, SEXP max_truncated_eventsSEXP, SEXP kSEXP, SEXP max_iterSEXP, SEXP tolSEXP, SEXP n_threadsSEXP) {
 BEGIN_RCPP
     Rcpp::RObject rcpp_result_gen;
     Rcpp::RNGScope rcpp_rngScope_gen;
     Rcpp::traits::input_parameter< NumericVector >::type x(xSEXP);
     Rcpp::traits::input_parameter< NumericMatrix >::type Y(YSEXP);
     Rcpp::traits::input_parameter< NumericMatrix >::type Threshold_target(Threshold_targetSEXP);
+    Rcpp::traits::input_parameter< NumericVector >::type threshold_source(threshold_sourceSEXP);
     Rcpp::traits::input_parameter< NumericVector >::type start_slope(start_slopeSEXP);
+    Rcpp::traits::input_parameter< IntegerVector >::type seed(seedSEXP);
     Rcpp::traits::input_parameter< double >::type max_coefficient(max_coefficientSEXP);
     Rcpp::traits::input_parameter< int >::type max_mask_passes(max_mask_passesSEXP);
     Rcpp::traits::input_parameter< double >::type mask_tolerance(mask_toleranceSEXP);
     Rcpp::traits::input_parameter< int >::type min_events(min_eventsSEXP);
+    Rcpp::traits::input_parameter< int >::type max_truncated_events(max_truncated_eventsSEXP);
     Rcpp::traits::input_parameter< double >::type k(kSEXP);
     Rcpp::traits::input_parameter< int >::type max_iter(max_iterSEXP);
     Rcpp::traits::input_parameter< double >::type tol(tolSEXP);
     Rcpp::traits::input_parameter< int >::type n_threads(n_threadsSEXP);
-    rcpp_result_gen = Rcpp::wrap(fix_envelope_truncated_batch_rcpp(x, Y, Threshold_target, start_slope, max_coefficient, max_mask_passes, mask_tolerance, min_events, k, max_iter, tol, n_threads));
+    rcpp_result_gen = Rcpp::wrap(fix_envelope_truncated_batch_rcpp(x, Y, Threshold_target, threshold_source, start_slope, seed, max_coefficient, max_mask_passes, mask_tolerance, min_events, max_truncated_events, k, max_iter, tol, n_threads));
     return rcpp_result_gen;
 END_RCPP
 }
@@ -305,7 +308,7 @@ static const R_CallMethodDef CallEntries[] = {
     {"_AutoSpectralRcpp_fcs_rcpp_write_data", (DL_FUNC) &_AutoSpectralRcpp_fcs_rcpp_write_data, 5},
     {"_AutoSpectralRcpp_filter_contaminant_events_cpp", (DL_FUNC) &_AutoSpectralRcpp_filter_contaminant_events_cpp, 3},
     {"_AutoSpectralRcpp_find_local_maxima", (DL_FUNC) &_AutoSpectralRcpp_find_local_maxima, 2},
-    {"_AutoSpectralRcpp_fix_envelope_truncated_batch_rcpp", (DL_FUNC) &_AutoSpectralRcpp_fix_envelope_truncated_batch_rcpp, 12},
+    {"_AutoSpectralRcpp_fix_envelope_truncated_batch_rcpp", (DL_FUNC) &_AutoSpectralRcpp_fix_envelope_truncated_batch_rcpp, 15},
     {"_AutoSpectralRcpp_fix_huber_slope_rcpp", (DL_FUNC) &_AutoSpectralRcpp_fix_huber_slope_rcpp, 6},
     {"_AutoSpectralRcpp_optimize_unmix", (DL_FUNC) &_AutoSpectralRcpp_optimize_unmix, 12},
     {"_AutoSpectralRcpp_poisson_irls_rcpp_parallel", (DL_FUNC) &_AutoSpectralRcpp_poisson_irls_rcpp_parallel, 10},

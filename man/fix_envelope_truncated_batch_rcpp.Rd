@@ -8,11 +8,14 @@ fix_envelope_truncated_batch_rcpp(
   x,
   Y,
   Threshold_target,
+  threshold_source,
   start_slope,
+  seed,
   max_coefficient = 0.2,
   max_mask_passes = 3L,
   mask_tolerance = 0.05,
   min_events = 200L,
+  max_truncated_events = 20000L,
   k = 1.345,
   max_iter = 100L,
   tol = 1e-04,
@@ -27,7 +30,15 @@ fix_envelope_truncated_batch_rcpp(
 \item{Threshold_target}{Numeric matrix, \verb{n x m}, per-event per-target
 positivity boundary.}
 
+\item{threshold_source}{Numeric vector, length \code{n}, the source's own
+per-event positivity boundary. Recycle to length \code{n} on the R side
+before calling.}
+
 \item{start_slope}{Numeric vector, length \code{m}, per-target warm starts.}
+
+\item{seed}{Integer vector, length \code{m}, one RNG seed per target, drawn
+from R's ambient RNG stream so a caller's \code{set.seed()} covers this
+call.}
 
 \item{max_coefficient}{double, largest accepted residual coefficient.
 Default \code{0.2}.}
@@ -39,6 +50,10 @@ Default \code{3}.}
 treated as settled and refinement stops early. Default \code{0.05}.}
 
 \item{min_events}{int, minimum selected events for a fit. Default \code{200}.}
+
+\item{max_truncated_events}{int, cap on the events used for the robust
+fit. Everything above the source threshold is kept and the negative
+bulk below it is subsampled. Default \code{20000}.}
 
 \item{k}{double, Huber tuning constant. Default \code{1.345}.}
 
@@ -82,11 +97,20 @@ over. Batching only pays off once that allocation, and the two
 \code{stats::median()} calls' R-level dispatch per iteration, are removed
 entirely -- which needs compiled code, not a different R vectorisation.
 
-Deliberately does not reproduce \code{select.negative()}'s bulk subsample when
-the negative population exceeds \code{max.truncated.events}; it fits the whole
-negative-selected population instead. Per the R version's own comment,
-the bulk sits at the origin and carries no leverage on the slope, so this
-is expected to be at least as accurate, not an approximation of it -- but
-it means a run against a call where subsampling would have triggered will
-not be bit-identical to \code{.fix.envelope.slope()}, only equivalent.
+Reproduces \code{select.negative()}'s bulk cap: every bright (source-positive)
+event is kept regardless of file size, and the origin-hugging bulk below
+the source threshold is subsampled down to \code{max_truncated_events} events
+total once the negative-selected population exceeds it. The bulk sits at
+the origin and carries no leverage on the fitted slope, but left uncapped
+it sets the Huber M-estimator's iterative MAD-based scale almost
+entirely once it outnumbers the bright tail by orders of magnitude --
+diluting the tail's relative influence and biasing the fitted slope
+toward zero. Each target gets its own \code{std::mt19937} stream, seeded from
+\code{seed} and reused across passes (not reseeded per pass), so the sampling
+is reproducible under R's \code{set.seed()} and identical regardless of
+\code{n_threads} -- a target's subsample depends only on its own seed, never
+on which thread happened to process it. Not bit-identical to
+\code{.fix.envelope.slope()}, which draws its bulk subsample from a single
+shared RNG stream advanced pair by pair, but statistically equivalent to
+it.
 }

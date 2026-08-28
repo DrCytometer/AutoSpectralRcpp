@@ -3,6 +3,7 @@
 #include <algorithm>
 #include <cmath>
 #include <limits>
+#include <random>
 #include <vector>
 #ifdef _OPENMP
 #include <omp.h>
@@ -128,19 +129,34 @@ static double huber_slope_on(
 //' `stats::median()` calls' R-level dispatch per iteration, are removed
 //' entirely -- which needs compiled code, not a different R vectorisation.
 //'
-//' Deliberately does not reproduce `select.negative()`'s bulk subsample when
-//' the negative population exceeds `max.truncated.events`; it fits the whole
-//' negative-selected population instead. Per the R version's own comment,
-//' the bulk sits at the origin and carries no leverage on the slope, so this
-//' is expected to be at least as accurate, not an approximation of it -- but
-//' it means a run against a call where subsampling would have triggered will
-//' not be bit-identical to `.fix.envelope.slope()`, only equivalent.
+//' Reproduces `select.negative()`'s bulk cap: every bright (source-positive)
+//' event is kept regardless of file size, and the origin-hugging bulk below
+//' the source threshold is subsampled down to `max_truncated_events` events
+//' total once the negative-selected population exceeds it. The bulk sits at
+//' the origin and carries no leverage on the fitted slope, but left uncapped
+//' it sets the Huber M-estimator's iterative MAD-based scale almost
+//' entirely once it outnumbers the bright tail by orders of magnitude --
+//' diluting the tail's relative influence and biasing the fitted slope
+//' toward zero. Each target gets its own `std::mt19937` stream, seeded from
+//' `seed` and reused across passes (not reseeded per pass), so the sampling
+//' is reproducible under R's `set.seed()` and identical regardless of
+//' `n_threads` -- a target's subsample depends only on its own seed, never
+//' on which thread happened to process it. Not bit-identical to
+//' `.fix.envelope.slope()`, which draws its bulk subsample from a single
+//' shared RNG stream advanced pair by pair, but statistically equivalent to
+//' it.
 //'
 //' @param x Numeric vector, length `n`, the shared source abundance.
 //' @param Y Numeric matrix, `n x m`, one column per target.
 //' @param Threshold_target Numeric matrix, `n x m`, per-event per-target
 //'   positivity boundary.
+//' @param threshold_source Numeric vector, length `n`, the source's own
+//'   per-event positivity boundary. Recycle to length `n` on the R side
+//'   before calling.
 //' @param start_slope Numeric vector, length `m`, per-target warm starts.
+//' @param seed Integer vector, length `m`, one RNG seed per target, drawn
+//'   from R's ambient RNG stream so a caller's `set.seed()` covers this
+//'   call.
 //' @param max_coefficient double, largest accepted residual coefficient.
 //'   Default `0.2`.
 //' @param max_mask_passes int, refinement passes after the initial fit.
@@ -148,6 +164,9 @@ static double huber_slope_on(
 //' @param mask_tolerance double, relative change below which a pass is
 //'   treated as settled and refinement stops early. Default `0.05`.
 //' @param min_events int, minimum selected events for a fit. Default `200`.
+//' @param max_truncated_events int, cap on the events used for the robust
+//'   fit. Everything above the source threshold is kept and the negative
+//'   bulk below it is subsampled. Default `20000`.
 //' @param k double, Huber tuning constant. Default `1.345`.
 //' @param max_iter int, maximum IRLS iterations per fit. Default `100`.
 //' @param tol double, IRLS relative coefficient-change tolerance. Default
@@ -172,20 +191,23 @@ static double huber_slope_on(
 // [[Rcpp::export]]
 List fix_envelope_truncated_batch_rcpp(
     NumericVector x, NumericMatrix Y, NumericMatrix Threshold_target,
-    NumericVector start_slope,
-    double max_coefficient = 0.2,
-    int max_mask_passes    = 3,
-    double mask_tolerance  = 0.05,
-    int min_events         = 200,
-    double k               = 1.345,
-    int max_iter           = 100,
-    double tol             = 1e-4,
-    int n_threads          = 1 ) {
+    NumericVector threshold_source, NumericVector start_slope,
+    IntegerVector seed,
+    double max_coefficient      = 0.2,
+    int max_mask_passes         = 3,
+    double mask_tolerance       = 0.05,
+    int min_events              = 200,
+    int max_truncated_events    = 20000,
+    double k                    = 1.345,
+    int max_iter                = 100,
+    double tol                  = 1e-4,
+    int n_threads                = 1 ) {
 
   int n = x.size();
   int m = Y.ncol();
 
-  const double* xp = x.begin();
+  const double* xp  = x.begin();
+  const double* tsp = threshold_source.begin();
 
   NumericVector slope_out( m, NA_REAL );
   IntegerVector n_out( m, 0 );
@@ -216,7 +238,7 @@ List fix_envelope_truncated_batch_rcpp(
   // parallel region, and reuses them for every target and every pass it
   // handles -- the same "allocate once, reuse" rule the serial version
   // followed, now applied per thread rather than once globally.
-  std::vector<int>    idx( n );
+  std::vector<int>    idx( n ), bright_idx( n ), bulk_idx( n );
   std::vector<double> xs( n ), ys( n );
   std::vector<double> w( n ), w_next( n ), resid( n ), absdev( n ), scratch( n );
 
@@ -230,12 +252,53 @@ List fix_envelope_truncated_batch_rcpp(
     double slope_result = NA_REAL;
     int    n_result      = 0;
 
+    // One generator per target, seeded from R and reused across every pass
+    // so successive passes' bulk subsamples are independent draws rather
+    // than repeats of the same one -- the same behaviour repeated calls to
+    // R's sample() give the scalar estimator across its own mask passes.
+    std::mt19937 gen( static_cast<unsigned int>( seed[ j ] ) );
+
     for ( int pass = 0; pass <= max_mask_passes; ++pass ) {
 
-      int ni = 0;
+      // Every target-negative event is bucketed by source positivity as
+      // the scan runs, so the bright/bulk split select.negative() needs is
+      // available with no second pass over the selection.
+      int n_bright = 0, n_bulk = 0;
       for ( int i = 0; i < n; ++i ) {
-        if ( Y( i, j ) - slope_curr * xp[ i ] < Threshold_target( i, j ) )
-          idx[ ni++ ] = i;
+        if ( Y( i, j ) - slope_curr * xp[ i ] < Threshold_target( i, j ) ) {
+          if ( xp[ i ] > tsp[ i ] ) bright_idx[ n_bright++ ] = i;
+          else                      bulk_idx[ n_bulk++ ]    = i;
+        }
+      }
+
+      int ni_total = n_bright + n_bulk;
+      int ni;
+
+      // Mirrors select.negative(): every bright (source-positive) event is
+      // kept regardless of file size, and the origin-hugging bulk is
+      // subsampled once the total exceeds max_truncated_events.
+      if ( ni_total <= max_truncated_events ) {
+
+        ni = 0;
+        for ( int t = 0; t < n_bright; ++t ) idx[ ni++ ] = bright_idx[ t ];
+        for ( int t = 0; t < n_bulk;    ++t ) idx[ ni++ ] = bulk_idx[ t ];
+
+      } else {
+
+        int n_bulk_keep = std::max( max_truncated_events - n_bright, min_events );
+        n_bulk_keep = std::min( n_bulk_keep, n_bulk );
+
+        // Partial Fisher-Yates over the first n_bulk_keep slots only, so
+        // the cost is O(n_bulk_keep), not O(n_bulk).
+        for ( int t = 0; t < n_bulk_keep; ++t ) {
+          std::uniform_int_distribution<int> pick( t, n_bulk - 1 );
+          int r = pick( gen );
+          std::swap( bulk_idx[ t ], bulk_idx[ r ] );
+        }
+
+        ni = 0;
+        for ( int t = 0; t < n_bright; ++t )    idx[ ni++ ] = bright_idx[ t ];
+        for ( int t = 0; t < n_bulk_keep; ++t ) idx[ ni++ ] = bulk_idx[ t ];
       }
 
       if ( ni < min_events ) {

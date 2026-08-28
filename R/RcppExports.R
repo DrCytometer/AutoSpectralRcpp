@@ -96,19 +96,34 @@ find_local_maxima <- function(z, neigh_size) {
 #' `stats::median()` calls' R-level dispatch per iteration, are removed
 #' entirely -- which needs compiled code, not a different R vectorisation.
 #'
-#' Deliberately does not reproduce `select.negative()`'s bulk subsample when
-#' the negative population exceeds `max.truncated.events`; it fits the whole
-#' negative-selected population instead. Per the R version's own comment,
-#' the bulk sits at the origin and carries no leverage on the slope, so this
-#' is expected to be at least as accurate, not an approximation of it -- but
-#' it means a run against a call where subsampling would have triggered will
-#' not be bit-identical to `.fix.envelope.slope()`, only equivalent.
+#' Reproduces `select.negative()`'s bulk cap: every bright (source-positive)
+#' event is kept regardless of file size, and the origin-hugging bulk below
+#' the source threshold is subsampled down to `max_truncated_events` events
+#' total once the negative-selected population exceeds it. The bulk sits at
+#' the origin and carries no leverage on the fitted slope, but left uncapped
+#' it sets the Huber M-estimator's iterative MAD-based scale almost
+#' entirely once it outnumbers the bright tail by orders of magnitude --
+#' diluting the tail's relative influence and biasing the fitted slope
+#' toward zero. Each target gets its own `std::mt19937` stream, seeded from
+#' `seed` and reused across passes (not reseeded per pass), so the sampling
+#' is reproducible under R's `set.seed()` and identical regardless of
+#' `n_threads` -- a target's subsample depends only on its own seed, never
+#' on which thread happened to process it. Not bit-identical to
+#' `.fix.envelope.slope()`, which draws its bulk subsample from a single
+#' shared RNG stream advanced pair by pair, but statistically equivalent to
+#' it.
 #'
 #' @param x Numeric vector, length `n`, the shared source abundance.
 #' @param Y Numeric matrix, `n x m`, one column per target.
 #' @param Threshold_target Numeric matrix, `n x m`, per-event per-target
 #'   positivity boundary.
+#' @param threshold_source Numeric vector, length `n`, the source's own
+#'   per-event positivity boundary. Recycle to length `n` on the R side
+#'   before calling.
 #' @param start_slope Numeric vector, length `m`, per-target warm starts.
+#' @param seed Integer vector, length `m`, one RNG seed per target, drawn
+#'   from R's ambient RNG stream so a caller's `set.seed()` covers this
+#'   call.
 #' @param max_coefficient double, largest accepted residual coefficient.
 #'   Default `0.2`.
 #' @param max_mask_passes int, refinement passes after the initial fit.
@@ -116,6 +131,9 @@ find_local_maxima <- function(z, neigh_size) {
 #' @param mask_tolerance double, relative change below which a pass is
 #'   treated as settled and refinement stops early. Default `0.05`.
 #' @param min_events int, minimum selected events for a fit. Default `200`.
+#' @param max_truncated_events int, cap on the events used for the robust
+#'   fit. Everything above the source threshold is kept and the negative
+#'   bulk below it is subsampled. Default `20000`.
 #' @param k double, Huber tuning constant. Default `1.345`.
 #' @param max_iter int, maximum IRLS iterations per fit. Default `100`.
 #' @param tol double, IRLS relative coefficient-change tolerance. Default
@@ -137,8 +155,8 @@ find_local_maxima <- function(z, neigh_size) {
 #'   in R).
 #'
 #' @export
-fix_envelope_truncated_batch_rcpp <- function(x, Y, Threshold_target, start_slope, max_coefficient = 0.2, max_mask_passes = 3L, mask_tolerance = 0.05, min_events = 200L, k = 1.345, max_iter = 100L, tol = 1e-4, n_threads = 1L) {
-    .Call(`_AutoSpectralRcpp_fix_envelope_truncated_batch_rcpp`, x, Y, Threshold_target, start_slope, max_coefficient, max_mask_passes, mask_tolerance, min_events, k, max_iter, tol, n_threads)
+fix_envelope_truncated_batch_rcpp <- function(x, Y, Threshold_target, threshold_source, start_slope, seed, max_coefficient = 0.2, max_mask_passes = 3L, mask_tolerance = 0.05, min_events = 200L, max_truncated_events = 20000L, k = 1.345, max_iter = 100L, tol = 1e-4, n_threads = 1L) {
+    .Call(`_AutoSpectralRcpp_fix_envelope_truncated_batch_rcpp`, x, Y, Threshold_target, threshold_source, start_slope, seed, max_coefficient, max_mask_passes, mask_tolerance, min_events, max_truncated_events, k, max_iter, tol, n_threads)
 }
 
 #' Huber-Weighted IRLS Slope (C++)
