@@ -3,8 +3,11 @@ CXX_STD = CXX17
 override CXXFLAGS   = -O3 -Wall
 override CXX17FLAGS = -O3 -Wall
 
-# Portable flags for Windows Rtools
-PKG_CXXFLAGS = $(SHLIB_OPENMP_CXXFLAGS) -DARMA_NO_DEBUG
+# Windows Rtools flags. -march=x86-64-v3 targets AVX2 + FMA + BMI1/BMI2,
+# the modern x86-64 baseline (Intel Haswell / AMD Excavator, 2013 or
+# later); this unlocks 256-bit SIMD for the auto-vectorizer, which -O3
+# alone does not enable on the generic x86-64 target.
+PKG_CXXFLAGS = $(SHLIB_OPENMP_CXXFLAGS) -DARMA_NO_DEBUG -march=x86-64-v3
 
 # Libraries
 PKG_LIBS = $(LAPACK_LIBS) $(BLAS_LIBS) $(FLIBS) $(SHLIB_OPENMP_CXXFLAGS)
