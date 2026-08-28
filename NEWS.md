@@ -1,4 +1,4 @@
-# AutoSpectralRcpp 1.2.2 (2026-08-26)
+# AutoSpectralRcpp 1.3.0 (2026-08-26)
 
 ## New features
 - Hand-rolled Huber slope robust linear modelling to support adaptive unmixing.
