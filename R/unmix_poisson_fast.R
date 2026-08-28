@@ -86,9 +86,9 @@ unmix.poisson.fast <- function(
 
   # call fast C++ IRLS
   irls.result <- poisson_irls_rcpp_parallel(
-    raw_data = raw.data,
+    raw_data_in = raw.data,
     spectra = spectra,
-    beta_init = beta.init,
+    beta_init_in = beta.init,
     maxit = maxit,
     tol = tol,
     n_threads = n_threads,
