@@ -491,13 +491,28 @@ for (int af_pass = 1; af_pass < n_af_passes; ++af_pass) {
     if (cell_weight) {
       S_F_w = spectra;
       S_F_w.each_row() %= sqrt_w_global.t();
-      solve(coeff_init, S_F_w.t(), cell_resid % sqrt_w_global, solve_opts::fast);
+
+      // Safe (non-throwing) form of solve(), with the returned success flag
+      // actually checked: some cells' weighted detector-space systems are
+      // numerically singular. The throwing single-return form used to sit
+      // here -- an exception raised inside this OpenMP region is undefined
+      // behaviour and crashes the whole R session with no message. On
+      // failure, fall back to the same unweighted pseudo-inverse estimate
+      // the cell_weight == FALSE branch below always uses, which cannot
+      // itself fail (P is a fixed, precomputed matrix).
+      if (!arma::solve(coeff_init, S_F_w.t(), cell_resid % sqrt_w_global,
+                       arma::solve_opts::fast)) {
+        coeff_init = P * cell_resid;
+      }
       y_hat = (spectra.t() * coeff_init) + (cell_raw - cell_resid);
       for (uword d = 0; d < D; ++d)
         sqrt_w[d] = 1.0 / std::sqrt(std::max(std::abs(y_hat[d]), current_noise_floor[d]));
 
-      cell_S_F_w    = spectra.each_row() % sqrt_w.t();
-      fluor_unmixed = solve(cell_S_F_w.t(), cell_resid % sqrt_w, solve_opts::fast);
+      cell_S_F_w = spectra.each_row() % sqrt_w.t();
+      if (!arma::solve(fluor_unmixed, cell_S_F_w.t(), cell_resid % sqrt_w,
+                       arma::solve_opts::fast)) {
+        fluor_unmixed = P * cell_resid;
+      }
     } else {
       // Detector weights are identical across cells here, so use global P
       sqrt_w.ones();

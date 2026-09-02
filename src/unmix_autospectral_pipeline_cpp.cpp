@@ -116,15 +116,22 @@ arma::mat unmix_autospectral_pipeline_cpp(
     static thread_local vec b_curr, b_trial;
     static thread_local std::vector<std::pair<double, size_t>> fluor_order;
     static thread_local std::vector<uword> m_to_c_row;
+    static thread_local vec cell_raw_vec;
+    static thread_local rowvec cell_raw;
+    static thread_local vec init_f;
+    static thread_local rowvec new_row;
+    static thread_local vec col_new;
+    static thread_local vec unmixed_curr_col;
+    static thread_local vec cell_unmixed_col;
 
     fluor_order.clear();
     if(m_to_c_row.size() != n_var_total) m_to_c_row.assign(n_var_total, 0);
 
-    vec cell_raw_vec = raw_data.col(i);
-    rowvec cell_raw = cell_raw_vec.t();
+    cell_raw_vec = raw_data.col(i);
+    cell_raw = cell_raw_vec.t();
 
     // A. AF EXTRACTION
-    vec init_f = (P * cell_raw_vec);
+    init_f = P * cell_raw_vec;
     double best_k_af = 0; uword best_idx_af = 0;
 
     if (use_dist0) {
@@ -155,83 +162,116 @@ arma::mat unmix_autospectral_pipeline_cpp(
       // only proceed if some fluorophores are positive
       if (pos_idx.n_elem > 0) {
         spectra_curr = cell_spectra_final.rows(pos_idx);
-        unmixed_curr = solve(spectra_curr.t(), cell_resid_raw.t(), solve_opts::fast).t();
-        resid = cell_resid_raw - (unmixed_curr * spectra_curr);
-        double err_final = sum(abs(resid));
-        double r_n = std::sqrt(dot(resid, resid));
 
-        A_curr = spectra_curr * spectra_curr.t();
-        b_curr = spectra_curr * cell_resid_raw.t();
+        // Safe (non-throwing) form of solve(): some cells' positive-
+        // fluorophore combinations are numerically singular (e.g. several
+        // highly collinear dyes all bright together). The throwing
+        // single-return form of solve() would propagate a C++ exception
+        // across the OpenMP region boundary here, which is undefined
+        // behaviour and crashes the whole R session with no message -- so
+        // failure is handled explicitly instead.
+        bool init_ok = arma::solve(unmixed_curr_col, spectra_curr.t(), cell_resid_raw.t(),
+                                   arma::solve_opts::fast);
 
-        // Swap row r_curr of spectra_curr to variant v_idx of endmember f_idx and
-        // solve for the resulting unmixed coefficients.
-        auto trial_swap = [&](size_t f_idx, uword r_curr, uword v_idx) {
-          rowvec new_row = v_mats[f_idx].row(v_idx);
+        if (init_ok) {
+          unmixed_curr = unmixed_curr_col.t();
+          resid = cell_resid_raw - (unmixed_curr * spectra_curr);
+          double err_final = sum(abs(resid));
+          double r_n = std::sqrt(dot(resid, resid));
 
-          vec col_new = spectra_curr * new_row.t();
-          A_trial = A_curr;
-          A_trial.col(r_curr) = col_new;
-          A_trial.row(r_curr) = col_new.t();
-          A_trial(r_curr, r_curr) = dot(new_row, new_row);
-          b_trial = b_curr;
-          b_trial[r_curr] = dot(new_row, cell_resid_raw);
+          A_curr = spectra_curr * spectra_curr.t();
+          b_curr = spectra_curr * cell_resid_raw.t();
 
-          spectra_curr.row(r_curr) = new_row;
+          // Swap row r_curr of spectra_curr to variant v_idx of endmember f_idx
+          // and solve for the resulting unmixed coefficients. Returns false
+          // (t_unmix/t_resid left untouched) if neither the Cholesky nor the
+          // QR fallback solve succeeds, so the caller can reject the trial
+          // instead of risking an uncaught exception inside the OpenMP region.
+          auto trial_swap = [&](size_t f_idx, uword r_curr, uword v_idx) -> bool {
+            new_row = v_mats[f_idx].row(v_idx);
 
-          vec tmp;
-          bool ok = arma::solve(tmp, A_trial, b_trial,
-                                arma::solve_opts::fast + arma::solve_opts::likely_sympd);
-          if (ok) {
-            t_unmix = tmp.t();
-          } else {
-            // Falls back to the original QR path if Cholesky fails
-            t_unmix = solve(spectra_curr.t(), cell_resid_raw.t(), solve_opts::fast).t();
-          }
-          t_resid = cell_resid_raw - (t_unmix * spectra_curr);
-        };
+            col_new = spectra_curr * new_row.t();
+            A_trial = A_curr;
+            A_trial.col(r_curr) = col_new;
+            A_trial.row(r_curr) = col_new.t();
+            A_trial(r_curr, r_curr) = dot(new_row, new_row);
+            b_trial = b_curr;
+            b_trial[r_curr] = dot(new_row, cell_resid_raw);
 
-        for (size_t f_idx : active_opt_indices) {
-          int m_idx = var_to_master[f_idx];
-          for(uword p = 0; p < pos_idx.n_elem; ++p) {
-            if((int)pos_idx[p] == m_idx) {
-              fluor_order.push_back({unmixed_curr[p], f_idx});
-              m_to_c_row[f_idx] = p; break;
+            spectra_curr.row(r_curr) = new_row;
+
+            vec tmp;
+            bool ok = arma::solve(tmp, A_trial, b_trial,
+                                  arma::solve_opts::fast + arma::solve_opts::likely_sympd);
+            if (ok) {
+              t_unmix = tmp.t();
+            } else {
+              // Falls back to the QR path if Cholesky fails
+              vec tmp_qr;
+              ok = arma::solve(tmp_qr, spectra_curr.t(), cell_resid_raw.t(), arma::solve_opts::fast);
+              if (!ok) return false;
+              t_unmix = tmp_qr.t();
             }
-          }
-        }
+            t_resid = cell_resid_raw - (t_unmix * spectra_curr);
+            return true;
+          };
 
-        // brightest to dimmest
-        if(!fluor_order.empty()){
-          std::sort(fluor_order.begin(), fluor_order.end(), std::greater<>());
-
-          double inv_rn = 1.0 / (r_n + 1e-12);
-
-          for (auto const& pair : fluor_order) {
-            size_t f_idx = pair.second; int m_idx = var_to_master[f_idx]; uword r_curr = m_to_c_row[f_idx];
-
-            if (r_n > 1e-12) {
-              vec scores = (D_scaled[f_idx] * resid.t()) * (unmixed_curr[r_curr] * inv_rn);
-              std::vector<uword> topK = find_top_k(scores, k_opt);
-
-              for (uword v_idx : topK) {
-                rowvec backup = spectra_curr.row(r_curr);
-                trial_swap(f_idx, r_curr, v_idx);
-
-                double current_err = sum(abs(t_resid));
-                if (current_err < err_final) {
-                  err_final = current_err; unmixed_curr = t_unmix; resid = t_resid;
-                  r_n = std::sqrt(dot(resid, resid));
-                  inv_rn = 1.0 / (r_n + 1e-12);
-                  cell_spectra_final.row(m_idx) = spectra_curr.row(r_curr);
-                  A_curr = A_trial; b_curr = b_trial;
-                } else {
-                  spectra_curr.row(r_curr) = backup;
-                }
+          for (size_t f_idx : active_opt_indices) {
+            int m_idx = var_to_master[f_idx];
+            for(uword p = 0; p < pos_idx.n_elem; ++p) {
+              if((int)pos_idx[p] == m_idx) {
+                fluor_order.push_back({unmixed_curr[p], f_idx});
+                m_to_c_row[f_idx] = p; break;
               }
             }
           }
-          cell_unmixed = solve(cell_spectra_final.t(), cell_resid_raw.t(), solve_opts::fast).t();
+
+          // brightest to dimmest
+          if(!fluor_order.empty()){
+            std::sort(fluor_order.begin(), fluor_order.end(), std::greater<>());
+
+            double inv_rn = 1.0 / (r_n + 1e-12);
+
+            for (auto const& pair : fluor_order) {
+              size_t f_idx = pair.second; int m_idx = var_to_master[f_idx]; uword r_curr = m_to_c_row[f_idx];
+
+              if (r_n > 1e-12) {
+                vec scores = (D_scaled[f_idx] * resid.t()) * (unmixed_curr[r_curr] * inv_rn);
+                std::vector<uword> topK = find_top_k(scores, k_opt);
+
+                for (uword v_idx : topK) {
+                  rowvec backup = spectra_curr.row(r_curr);
+                  if (!trial_swap(f_idx, r_curr, v_idx)) {
+                    spectra_curr.row(r_curr) = backup;
+                    continue;
+                  }
+
+                  double current_err = sum(abs(t_resid));
+                  if (current_err < err_final) {
+                    err_final = current_err; unmixed_curr = t_unmix; resid = t_resid;
+                    r_n = std::sqrt(dot(resid, resid));
+                    inv_rn = 1.0 / (r_n + 1e-12);
+                    cell_spectra_final.row(m_idx) = spectra_curr.row(r_curr);
+                    A_curr = A_trial; b_curr = b_trial;
+                  } else {
+                    spectra_curr.row(r_curr) = backup;
+                  }
+                }
+              }
+            }
+
+            // Same safe-solve treatment for the final full-panel solve. If it
+            // fails, cell_unmixed keeps the AF-only value computed earlier
+            // rather than crashing or writing a stale result.
+            if (arma::solve(cell_unmixed_col, cell_spectra_final.t(), cell_resid_raw.t(),
+                            arma::solve_opts::fast)) {
+              cell_unmixed = cell_unmixed_col.t();
+            }
+          }
         }
+        // If init_ok == false, this cell's positive-fluorophore combination
+        // was numerically singular; cell_unmixed keeps its AF-only value and
+        // per-cell swap optimisation is skipped for this cell.
       }
     }
 
