@@ -281,6 +281,19 @@ arma::mat unmix_autospectral_joint_cpp(
   vec trial_resid(D);
   mat S_F_w(F, D);
 
+  // Per-cell Gram-matrix / RHS buffers for the joint variant-selection pass
+  // loop (Section C) and its try_commit lambda. Pre-sized once per thread so
+  // the per-cell and per-commit updates below only ever assign into existing
+  // memory, never allocate.
+  mat A_base(F, F);
+  vec b_base(F);
+  vec y_vec(D);
+  mat A_trial(F, F);
+  vec b_trial(F);
+  rowvec s_new(D);
+  vec col_update(F);
+  rowvec prev_row(D);
+
   // Scratch for the vectorised joint-variant scan (Section C).
   vec rsw(D);        // resid .* sqrt_w        (recomputed per pass)
   vec w_eff(D);      // sqrt_w .* sqrt_w       (per cell, weighted path only)
@@ -295,6 +308,7 @@ arma::mat unmix_autospectral_joint_cpp(
 
   struct Candidate { double score; int f_opt; uword v; };
   std::vector<Candidate> candidates;
+  candidates.reserve(4 * n_opt + 16);
 
   // committed_deltas now also carries the identity (f_opt, variant) of the
   // committed candidate so a later conflicting candidate can be logged
@@ -313,6 +327,7 @@ arma::mat unmix_autospectral_joint_cpp(
   // fresh each pass.
   struct QueuedRetry { int opt_i; uword v; };
   std::vector<QueuedRetry> queued_retries;
+  queued_retries.reserve(n_opt);
 
   auto score_af = [&](const vec& active_raw, uword& out_j, double& out_k) -> double {
     init_f        = P * active_raw;
@@ -346,7 +361,7 @@ arma::mat unmix_autospectral_joint_cpp(
 
 #pragma omp for schedule(dynamic, 64)
   for (uword i = 0; i < N; ++i) {
-    const vec cell_raw = raw_data.col(i);
+    const vec cell_raw = raw_data.unsafe_col(i);
     uword j_af; double k_af;
     score_af(cell_raw, j_af, k_af);
     af_index_vec[i]     = j_af;
@@ -381,7 +396,7 @@ for (int af_pass = 1; af_pass < n_af_passes; ++af_pass) {
 #pragma omp for schedule(dynamic, 64)
   for (uword i = 0; i < N; ++i) {
 
-    const vec cell_raw   = raw_data.col(i);
+    const vec cell_raw   = raw_data.unsafe_col(i);
     cell_resid            = resid_mat.col(i);
     const double k_af     = af_abundance_vec[i];
     const uword best_j_af = af_index_vec[i];
@@ -417,18 +432,16 @@ for (int af_pass = 1; af_pass < n_af_passes; ++af_pass) {
     }
 
     // Only needed for the joint variant-selection pass loop and try_commit's
-    // incremental Gram update (Section C) below -- now built *after* the
-    // af_only early return rather than before it.
+    // incremental Gram update below
     cell_S.rows(0, F - 1) = spectra;
 
-    mat A_base;
     if (cell_weight) {
       A_base = cell_S_F_w * cell_S_F_w.t();
     } else {
-      A_base = SST_global;   // constant across cells; reused from Section 1
+      A_base = SST_global;   // constant across cells
     }
-    vec b_base = cell_S_F_w * (cell_resid % sqrt_w);
-    vec y_vec  = cell_resid % sqrt_w;
+    b_base = cell_S_F_w * (cell_resid % sqrt_w);
+    y_vec  = cell_resid % sqrt_w;
 
     const double cell_resid_ss = dot(cell_resid, cell_resid);
     std::fill(best_v.begin(), best_v.end(), -1);
@@ -587,20 +600,20 @@ for (int af_pass = 1; af_pass < n_af_passes; ++af_pass) {
         const FluorPrecomp& pc_v = precomp[opt_i];
         const int idx = pc_v.master_idx;
 
-        const rowvec prev_row = cell_S.row(idx);
+        prev_row = cell_S.row(idx);
         cell_S.row(idx) = pc_v.v_mats.row(v);
 
-        rowvec s_new = pc_v.v_mats.row(v) % sqrt_w.t();
-        vec col_update = cell_S_F_w * s_new.t();
+        s_new      = pc_v.v_mats.row(v) % sqrt_w.t();
+        col_update = cell_S_F_w * s_new.t();
 
-        mat A_trial = A_base;
+        A_trial = A_base;
         for (uword r = 0; r < F; ++r) {
           A_trial(r, idx) = col_update[r];
           A_trial(idx, r) = col_update[r];
         }
         A_trial(idx, idx) = arma::dot(s_new, s_new);
 
-        vec b_trial = b_base;
+        b_trial = b_base;
         b_trial[idx] = arma::dot(s_new, y_vec);
 
         // A_trial is a Gram matrix (symmetric positive-definite); use the
