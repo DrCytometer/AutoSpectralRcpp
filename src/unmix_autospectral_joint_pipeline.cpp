@@ -119,6 +119,12 @@ arma::mat unmix_autospectral_joint_cpp(
   mat P = solve(SST_global, spectra_w);                            // F x D
   P.each_row() %= sqrt_w_global.t();
 
+  // Detector-major copy of af_spectra (D x nAF). Used in the per-cell loop
+  // below so subtracting a selected AF spectrum from a cell's residual reads
+  // a genuine contiguous column instead of transposing a (memory-strided)
+  // row of af_spectra on every cell.
+  const mat af_spectra_t = af_spectra.t();
+
   // AF helpers — computed in weighted detector space
   const mat v_lib_af  = P * af_spectra.t();                        // F   x nAF
   const mat r_lib_af  = af_spectra.t() - spectra.t() * v_lib_af;  // D   x nAF
@@ -237,6 +243,14 @@ arma::mat unmix_autospectral_joint_cpp(
     }
   }
 
+  // Largest per-endmember variant count across all active fluorophores, used
+  // to pre-size the per-cell candidate-scan buffers below so cross_v / drsq_v
+  // / g_cur never need to grow or shrink when moving between endmembers with
+  // different variant counts within the same cell.
+  uword max_n_variants = 1;
+  for (const auto& pc : precomp)
+    if (pc.active) max_n_variants = std::max(max_n_variants, pc.n_variants);
+
   // =========================================================================
   // SECTION 3 – parallel loop
   // =========================================================================
@@ -294,12 +308,15 @@ arma::mat unmix_autospectral_joint_cpp(
   vec col_update(F);
   rowvec prev_row(D);
 
-  // Scratch for the vectorised joint-variant scan (Section C).
+  // Scratch for the vectorised joint-variant scan (Section C). cross_v /
+  // drsq_v / g_cur are pre-sized to the largest variant count across all
+  // endmembers (Section 2B) and only ever written into their leading nv
+  // elements per endmember below, so they never need to resize.
   vec rsw(D);        // resid .* sqrt_w        (recomputed per pass)
   vec w_eff(D);      // sqrt_w .* sqrt_w       (per cell, weighted path only)
-  vec cross_v;       // <resid, (r_v - r_cur).*w>  for all v
-  vec drsq_v;        // ||(r_v - r_cur).*w||^2      for all v
-  vec g_cur;         // <r_v.*w, r_cur.*w>          for all v
+  vec cross_v(max_n_variants);   // <resid, (r_v - r_cur).*w>  for all v
+  vec drsq_v(max_n_variants);    // ||(r_v - r_cur).*w||^2      for all v
+  vec g_cur(max_n_variants);     // <r_v.*w, r_cur.*w>          for all v
   // Weighted self-dots q_a[v] = ||r_v .* w||^2, cached per active endmember
   // per cell and reused across passes (weighted path only; unweighted uses the
   // static precomputed r_dots). Lazy so below-threshold endmembers cost nothing.
@@ -310,16 +327,23 @@ arma::mat unmix_autospectral_joint_cpp(
   std::vector<Candidate> candidates;
   candidates.reserve(4 * n_opt + 16);
 
-  // committed_deltas now also carries the identity (f_opt, variant) of the
-  // committed candidate so a later conflicting candidate can be logged
-  // against a known winner, not just an anonymous direction vector.
-  struct CommittedDelta { vec dr; double norm; int ai; uword v; };
   std::vector<bool>                  committed;
-  std::vector<CommittedDelta>        committed_deltas;
   std::vector<std::pair<int, uword>> commits;
   committed.reserve(n_opt);
-  committed_deltas.reserve(n_opt);
   commits.reserve(n_opt);
+
+  // Committed-delta storage for the conflict-resolution scan below: columns
+  // of a pre-allocated D x n_opt matrix (never resized) plus a parallel
+  // norm / owning-endmember-index vector, instead of a vector of owned
+  // per-commit vec objects. Recording a commit is then a write into
+  // existing memory rather than a fresh D-element heap allocation -- this
+  // loop can run many times per cell (up to once per committed candidate,
+  // per pass).
+  mat committed_deltas_mat(D, n_opt > 0 ? (uword)n_opt : 1);
+  std::vector<double> committed_norms;
+  std::vector<int>    committed_ai;
+  committed_norms.reserve(n_opt);
+  committed_ai.reserve(n_opt);
 
   // Queued joint-pair retries for the current pass: candidates discarded for
   // conflicting with a structurally-collinear committed candidate. Cleared
@@ -366,7 +390,7 @@ arma::mat unmix_autospectral_joint_cpp(
     score_af(cell_raw, j_af, k_af);
     af_index_vec[i]     = j_af;
     af_abundance_vec[i] = k_af;
-    resid_mat.col(i)    = cell_raw - k_af * af_spectra.row(j_af).t();
+    resid_mat.col(i)    = cell_raw - k_af * af_spectra_t.col(j_af);
   }
 
 #pragma omp single
@@ -386,7 +410,7 @@ for (int af_pass = 1; af_pass < n_af_passes; ++af_pass) {
     const double score_ref = score_af(resid_mat.col(i), j_ref, k_ref);
     if (score_ref < 1.0) {
       af_abundance_vec[i] += k_ref;
-      resid_mat.col(i)    -= k_ref * af_spectra.row(j_ref).t();
+      resid_mat.col(i)    -= k_ref * af_spectra_t.col(j_ref);
     } else {
       still_active[i] = 0;
     }
@@ -488,6 +512,7 @@ for (int af_pass = 1; af_pass < n_af_passes; ++af_pass) {
         const double base_leakage =
           std::max(dot(pc.w_leakage, abs(other_unmixed)), 1e-8);
         const int cur_v = best_v[opt_i];
+        const uword nv  = pc.n_variants;
 
         // ---- Vectorised residual-ratio scan over all variants at once ----
         // cross_v[v] = <resid, (r_v - r_cur) .* w>      (1 gemv, shared rsw)
@@ -495,19 +520,23 @@ for (int af_pass = 1; af_pass < n_af_passes; ++af_pass) {
         // Weighted self-dots q: built once per active endmember per cell (after
         // the skip check, so skipped endmembers cost nothing) and reused across
         // passes. Unweighted uses the static precomputed r_dots.
+        //
+        // Writes below go into the leading nv elements of the pre-sized
+        // cross_v / drsq_v / g_cur buffers -- endmembers with fewer variants
+        // than max_n_variants never trigger a resize.
         if (cell_weight && !q_ready[ai]) {
           q_by_active[ai] = pc.r_lib_sq.t() * w_eff;
           q_ready[ai] = 1;
         }
         const vec& q_ref = cell_weight ? q_by_active[ai] : pc.r_dots;
-        cross_v = pc.r_lib.t() * rsw;                          // n_variants
+        cross_v.subvec(0, nv - 1) = pc.r_lib.t() * rsw;         // n_variants
         if (cur_v < 0) {
-          drsq_v = q_ref;
+          drsq_v.subvec(0, nv - 1) = q_ref;
         } else {
-          if (cell_weight) g_cur = pc.r_lib.t() * (pc.r_lib.col(cur_v) % w_eff);
-          else             g_cur = pc.r_lib.t() *  pc.r_lib.col(cur_v);
-          drsq_v  = q_ref + q_ref[cur_v] - 2.0 * g_cur;
-          cross_v -= cross_v[cur_v];
+          if (cell_weight) g_cur.subvec(0, nv - 1) = pc.r_lib.t() * (pc.r_lib.col(cur_v) % w_eff);
+          else             g_cur.subvec(0, nv - 1) = pc.r_lib.t() *  pc.r_lib.col(cur_v);
+          drsq_v.subvec(0, nv - 1) = q_ref + q_ref[cur_v] - 2.0 * g_cur.subvec(0, nv - 1);
+          cross_v.subvec(0, nv - 1) -= cross_v[cur_v];
         }
 
         const double abund2 = abund * abund;
@@ -554,7 +583,9 @@ for (int af_pass = 1; af_pass < n_af_passes; ++af_pass) {
 
       // Conflict resolution: commit non-overlapping swaps
       committed.assign(n_active, false);
-      committed_deltas.clear();
+      uword n_committed = 0;
+      committed_norms.clear();
+      committed_ai.clear();
       commits.clear();
 
       for (const auto& cand : candidates) {
@@ -573,12 +604,12 @@ for (int af_pass = 1; af_pass < n_af_passes; ++af_pass) {
         const double dr_norm = std::max(norm(dr), 1e-12);
 
         bool conflict = false;
-        for (const auto& cd : committed_deltas) {
-          const double cosine = std::abs(dot(dr, cd.dr)) /
-            (dr_norm * cd.norm);
+        for (uword c = 0; c < n_committed; ++c) {
+          const double cosine = std::abs(dot(dr, committed_deltas_mat.col(c))) /
+            (dr_norm * committed_norms[c]);
           if (cosine > 0.5) {
             conflict = true;
-            const int winner_master = precomp[active_indices[cd.ai]].master_idx;
+            const int winner_master = precomp[active_indices[committed_ai[c]]].master_idx;
             const bool collinear_pair = (bool)is_collinear(pc.master_idx, winner_master);
 
             if (joint_pair_resolution && collinear_pair) {
@@ -590,7 +621,10 @@ for (int af_pass = 1; af_pass < n_af_passes; ++af_pass) {
         if (conflict) continue;
 
         committed[cand.f_opt] = true;
-        committed_deltas.push_back({dr, dr_norm, cand.f_opt, cand.v});
+        committed_deltas_mat.col(n_committed) = dr;
+        committed_norms.push_back(dr_norm);
+        committed_ai.push_back(cand.f_opt);
+        ++n_committed;
         commits.push_back({opt_i, cand.v});
       }
 
