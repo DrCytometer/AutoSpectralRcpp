@@ -267,90 +267,153 @@ arma::mat unmix_autospectral_joint_cpp(
 
 #pragma omp parallel
 {
-  // Thread-local buffers
-  vec resid(D);
-  vec resid_raw(D);
-  vec fluor_unmixed(F);
-  mat cell_S(F + 1, D);
-  mat cell_S_F_w(F, D);
-  vec unmixed_full(F + 1);
-  vec sqrt_w(D);
-  vec dr(D);
-  std::vector<int> best_v(n_opt, -1);
-  vec init_f(F);
-  vec base_resid_af(D);
-  vec cell_resid(D);
-  vec y_hat(D);
-  vec k_af_vec(nAF);
-  vec cross_af(nAF);
-  vec resid_sq_af(nAF);
-  vec presid_af(nAF);
-  vec pfluor_af(nAF);
-  vec score_af_vec(nAF);
-  mat diffs_af(F, nAF);
-  vec coeff_init(F);
-  vec other_unmixed(F > 0 ? F - 1 : 0);
-  vec trial_unmixed(F);
-  vec trial_resid_raw(D);
-  vec trial_resid(D);
-  mat S_F_w(F, D);
+  // Thread-local buffers. Declared `static thread_local` (matching the
+  // pattern already used by unmix_autospectral_pipeline_cpp) so each OS
+  // thread constructs them ONCE, ever, and reuses the same memory across
+  // every subsequent call to this function for the life of the R session --
+  // not just across cells within a single call. Without `static`, every
+  // call re-enters this parallel region and every thread reconstructs every
+  // buffer below from scratch simultaneously: a synchronised burst of
+  // concurrent allocation right at region entry, which gets worse (not
+  // better) as thread count rises on Windows, and which repeated per-cell
+  // allocation fixes alone cannot touch since it happens once per call, not
+  // once per cell.
+  //
+  // Because the buffers persist across calls, and different calls can pass
+  // a differently-shaped panel (different F / D / nAF / n_opt /
+  // max_n_variants / n_active), every buffer is explicitly (re)sized below
+  // via set_size()/assign(), every call. Armadillo's set_size() is a no-op
+  // when the requested size already matches the current size, so on
+  // repeated calls with the same panel this costs nothing; it only
+  // reallocates when the panel shape has actually changed.
+  static thread_local vec resid;
+  static thread_local vec resid_raw;
+  static thread_local vec fluor_unmixed;
+  static thread_local mat cell_S;
+  static thread_local mat cell_S_F_w;
+  static thread_local vec unmixed_full;
+  static thread_local vec sqrt_w;
+  static thread_local vec dr;
+  static thread_local std::vector<int> best_v;
+  static thread_local vec init_f;
+  static thread_local vec base_resid_af;
+  static thread_local vec cell_resid;
+  static thread_local vec y_hat;
+  static thread_local vec k_af_vec;
+  static thread_local vec cross_af;
+  static thread_local vec resid_sq_af;
+  static thread_local vec presid_af;
+  static thread_local vec pfluor_af;
+  static thread_local vec score_af_vec;
+  static thread_local mat diffs_af;
+  static thread_local vec coeff_init;
+  static thread_local vec other_unmixed;
+  static thread_local vec trial_unmixed;
+  static thread_local vec trial_resid_raw;
+  static thread_local vec trial_resid;
+  static thread_local mat S_F_w;
 
-  // Per-cell Gram-matrix / RHS buffers for the joint variant-selection pass
-  // loop (Section C) and its try_commit lambda. Pre-sized once per thread so
-  // the per-cell and per-commit updates below only ever assign into existing
-  // memory, never allocate.
-  mat A_base(F, F);
-  vec b_base(F);
-  vec y_vec(D);
-  mat A_trial(F, F);
-  vec b_trial(F);
-  rowvec s_new(D);
-  vec col_update(F);
-  rowvec prev_row(D);
+  static thread_local mat A_base;
+  static thread_local vec b_base;
+  static thread_local vec y_vec;
+  static thread_local mat A_trial;
+  static thread_local vec b_trial;
+  static thread_local rowvec s_new;
+  static thread_local vec col_update;
+  static thread_local rowvec prev_row;
 
-  // Scratch for the vectorised joint-variant scan (Section C). cross_v /
-  // drsq_v / g_cur are pre-sized to the largest variant count across all
-  // endmembers (Section 2B) and only ever written into their leading nv
-  // elements per endmember below, so they never need to resize.
-  vec rsw(D);        // resid .* sqrt_w        (recomputed per pass)
-  vec w_eff(D);      // sqrt_w .* sqrt_w       (per cell, weighted path only)
-  vec cross_v(max_n_variants);   // <resid, (r_v - r_cur).*w>  for all v
-  vec drsq_v(max_n_variants);    // ||(r_v - r_cur).*w||^2      for all v
-  vec g_cur(max_n_variants);     // <r_v.*w, r_cur.*w>          for all v
+  static thread_local vec rsw;        // resid .* sqrt_w        (recomputed per pass)
+  static thread_local vec w_eff;      // sqrt_w .* sqrt_w       (per cell, weighted path only)
+  static thread_local vec cross_v;    // <resid, (r_v - r_cur).*w>  for all v
+  static thread_local vec drsq_v;     // ||(r_v - r_cur).*w||^2      for all v
+  static thread_local vec g_cur;      // <r_v.*w, r_cur.*w>          for all v
+
   // Weighted self-dots q_a[v] = ||r_v .* w||^2, cached per active endmember
   // per cell and reused across passes (weighted path only; unweighted uses the
   // static precomputed r_dots). Lazy so below-threshold endmembers cost nothing.
-  std::vector<vec>  q_by_active(active_indices.size());
-  std::vector<char> q_ready(active_indices.size());
+  static thread_local std::vector<vec>  q_by_active;
+  static thread_local std::vector<char> q_ready;
 
   struct Candidate { double score; int f_opt; uword v; };
-  std::vector<Candidate> candidates;
-  candidates.reserve(4 * n_opt + 16);
+  static thread_local std::vector<Candidate> candidates;
 
-  std::vector<bool>                  committed;
-  std::vector<std::pair<int, uword>> commits;
-  committed.reserve(n_opt);
-  commits.reserve(n_opt);
+  static thread_local std::vector<bool>                  committed;
+  static thread_local std::vector<std::pair<int, uword>> commits;
 
   // Committed-delta storage for the conflict-resolution scan below: columns
-  // of a pre-allocated D x n_opt matrix (never resized) plus a parallel
-  // norm / owning-endmember-index vector, instead of a vector of owned
-  // per-commit vec objects. Recording a commit is then a write into
-  // existing memory rather than a fresh D-element heap allocation -- this
-  // loop can run many times per cell (up to once per committed candidate,
-  // per pass).
-  mat committed_deltas_mat(D, n_opt > 0 ? (uword)n_opt : 1);
-  std::vector<double> committed_norms;
-  std::vector<int>    committed_ai;
-  committed_norms.reserve(n_opt);
-  committed_ai.reserve(n_opt);
+  // of a pre-allocated D x n_opt matrix plus a parallel norm /
+  // owning-endmember-index vector, instead of a vector of owned per-commit
+  // vec objects. Recording a commit is a write into existing memory rather
+  // than a fresh D-element heap allocation -- this loop can run many times
+  // per cell (up to once per committed candidate, per pass).
+  static thread_local mat committed_deltas_mat;
+  static thread_local std::vector<double> committed_norms;
+  static thread_local std::vector<int>    committed_ai;
 
   // Queued joint-pair retries for the current pass: candidates discarded for
   // conflicting with a structurally-collinear committed candidate. Cleared
   // and rebuilt every pass, since candidates themselves are regenerated
   // fresh each pass.
   struct QueuedRetry { int opt_i; uword v; };
-  std::vector<QueuedRetry> queued_retries;
+  static thread_local std::vector<QueuedRetry> queued_retries;
+
+  const uword n_active_sz = active_indices.size();
+
+  resid.set_size(D);
+  resid_raw.set_size(D);
+  fluor_unmixed.set_size(F);
+  cell_S.set_size(F + 1, D);
+  cell_S_F_w.set_size(F, D);
+  unmixed_full.set_size(F + 1);
+  sqrt_w.set_size(D);
+  dr.set_size(D);
+  best_v.assign(n_opt, -1);
+  init_f.set_size(F);
+  base_resid_af.set_size(D);
+  cell_resid.set_size(D);
+  y_hat.set_size(D);
+  k_af_vec.set_size(nAF);
+  cross_af.set_size(nAF);
+  resid_sq_af.set_size(nAF);
+  presid_af.set_size(nAF);
+  pfluor_af.set_size(nAF);
+  score_af_vec.set_size(nAF);
+  diffs_af.set_size(F, nAF);
+  coeff_init.set_size(F);
+  other_unmixed.set_size(F > 0 ? F - 1 : 0);
+  trial_unmixed.set_size(F);
+  trial_resid_raw.set_size(D);
+  trial_resid.set_size(D);
+  S_F_w.set_size(F, D);
+
+  A_base.set_size(F, F);
+  b_base.set_size(F);
+  y_vec.set_size(D);
+  A_trial.set_size(F, F);
+  b_trial.set_size(F);
+  s_new.set_size(D);
+  col_update.set_size(F);
+  prev_row.set_size(D);
+
+  rsw.set_size(D);
+  w_eff.set_size(D);
+  cross_v.set_size(max_n_variants);
+  drsq_v.set_size(max_n_variants);
+  g_cur.set_size(max_n_variants);
+
+  q_by_active.resize(n_active_sz);
+  q_ready.assign(n_active_sz, 0);
+
+  candidates.clear();
+  candidates.reserve(4 * n_opt + 16);
+
+  committed.reserve(n_opt);
+  commits.reserve(n_opt);
+
+  committed_deltas_mat.set_size(D, n_opt > 0 ? (uword)n_opt : 1);
+  committed_norms.reserve(n_opt);
+  committed_ai.reserve(n_opt);
+
   queued_retries.reserve(n_opt);
 
   auto score_af = [&](const vec& active_raw, uword& out_j, double& out_k) -> double {
