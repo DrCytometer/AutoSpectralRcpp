@@ -137,14 +137,23 @@ arma::mat unmix_autospectral_joint_cpp(
   // Identifiability guard: an AF variant lying almost inside the fluorophore
   // span has a vanishing out-of-span residual direction, so its abundance k
   // is not identifiable from the residual and the raw ratio explodes. Floor
-  // each self-dot at a fraction of the largest, capping the relative
-  // amplification of near-in-span variants.
-  const double r_dots_floor = 0.01 * std::max(r_dots_af.max(), 1e-10);
+  // each self-dot at a fraction of a robust (median) scale across all
+  // candidates, rather than the largest. A single pathological AF spectrum
+  // (e.g. corrupted upstream, or a future outlier we haven't anticipated)
+  // would otherwise inflate the floor for every other candidate at once and
+  // crush their abundance estimates toward zero; the median is insensitive
+  // to that kind of single-row corruption across a library of hundreds to
+  // thousands of candidates.
+  const double r_dots_scale = quantile_type7(r_dots_af, 0.5);
+  const double r_dots_floor = 0.01 * std::max(r_dots_scale, 1e-10);
   r_dots_af = clamp(r_dots_af, r_dots_floor, arma::datum::inf);
 
-  // r_lib_af pre-scaled by w_global^2, so the per-cell k_j numerator for
-  // every AF candidate collapses into a single gemv instead of nAF dot()s.
-  const mat r_lib_af_w2 = r_lib_af.each_col() % (w_global % w_global);
+  // r_lib_af pre-scaled by w_global (one power, matching r_dots_af above),
+  // so the per-cell k_j numerator for every AF candidate collapses into a
+  // single gemv instead of nAF dot()s. k_j is the weighted least-squares
+  // solution k = <r_j, y>_w / <r_j, r_j>_w, so numerator and denominator
+  // must carry the same power of w.
+  const mat r_lib_af_w = r_lib_af.each_col() % w_global;
 
   // Unweighted self-dot of each AF candidate's residual direction, needed
   // for the rank-1 residual-norm update in the vectorised scorer below.
@@ -424,7 +433,7 @@ arma::mat unmix_autospectral_joint_cpp(
     const double base_fluor_l1   = std::max(dot(w_af, abs(init_f)), 1e-8);
 
     // k_j for every AF candidate in one gemv (was nAF separate dot()s).
-    k_af_vec = clamp(r_lib_af_w2.t() * active_raw, 0.0, arma::datum::inf) / r_dots_af;
+    k_af_vec = clamp(r_lib_af_w.t() * active_raw, 0.0, arma::datum::inf) / r_dots_af;
 
     // Rank-1 residual-norm update for every candidate at once — avoids
     // forming a D-length r_j per candidate.
