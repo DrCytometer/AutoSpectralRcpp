@@ -1,3 +1,16 @@
+# AutoSpectralRcpp 1.3.1 (2026-09-03)
+
+## Improvements
+- More memory management improvements to the C++ pipeline to speed up processing.
+Thread-local buffers, fewer heap allocations.
+
+## Bug fixes
+- Patched a bug wherein residual scoring for AF candidate selection would inflate
+massively due to improperly normalized AF spectra.
+- Safe solve to prevent crashes if singular values obtained.
+- Reproducible random number generation for `fix.my.unmix()`.
+
+
 # AutoSpectralRcpp 1.3.0 (2026-08-26)
 
 ## New features
