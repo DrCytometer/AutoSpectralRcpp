@@ -191,6 +191,13 @@
 #'   take forward for any additional AF passes (determined by \code{n.af.passes}).
 #'   Set to \code{1} to assess all cells in subsequent round; otherwise the highest
 #'   abundance AF cells will be reassessed.
+#' @param exact.variant.scan Logical, default \code{FALSE}. Scores candidate
+#'   spectral variants with the closed-form solution for a single endmember
+#'   swap rather than the fixed-abundance residual approximation. The candidate
+#'   is still verified by a full re-solve before it is accepted, so this changes
+#'   which variants are proposed, not which are allowed. Ignored when
+#'   \code{cell.weight = TRUE}, where the required projector is not constant
+#'   across cells.
 #'
 #' @return Unmixed data with cells in rows and fluorophores in columns.
 #'
@@ -215,7 +222,8 @@ unmix.autospectral.rcpp <- function(
     alpha                 = 0.5,
     collinear.threshold   = 0.5,
     joint.pair.resolution = TRUE,
-    refine.af.quantile    = 0.5
+    refine.af.quantile    = 0.5,
+    exact.variant.scan    = FALSE
 ) {
 
   # spectral reference matrix must contain exactly one row per fluorophore
@@ -304,7 +312,8 @@ unmix.autospectral.rcpp <- function(
       collinear_thresh      = as.numeric( collinear.threshold ),
       joint_pair_resolution = isTRUE( joint.pair.resolution ),
       n_af_passes           = as.integer( n.af.passes ),
-      refine_af_quantile    = as.numeric( refine.af.quantile )
+      refine_af_quantile    = as.numeric( refine.af.quantile ),
+      exact_variant_scan    = isTRUE( exact.variant.scan )
     )
   } else {
     unmixed <- unmix_autospectral_pipeline_cpp(

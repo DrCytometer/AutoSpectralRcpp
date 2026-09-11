@@ -23,7 +23,8 @@ unmix.autospectral.rcpp(
   alpha = 0.5,
   collinear.threshold = 0.5,
   joint.pair.resolution = TRUE,
-  refine.af.quantile = 0.5
+  refine.af.quantile = 0.5,
+  exact.variant.scan = FALSE
 )
 }
 \arguments{
@@ -119,6 +120,14 @@ an optimal solution.}
 take forward for any additional AF passes (determined by \code{n.af.passes}).
 Set to \code{1} to assess all cells in subsequent round; otherwise the highest
 abundance AF cells will be reassessed.}
+
+\item{exact.variant.scan}{Logical, default \code{FALSE}. Scores candidate
+spectral variants with the closed-form solution for a single endmember
+swap rather than the fixed-abundance residual approximation. The candidate
+is still verified by a full re-solve before it is accepted, so this changes
+which variants are proposed, not which are allowed. Ignored when
+\code{cell.weight = TRUE}, where the required projector is not constant
+across cells.}
 }
 \value{
 Unmixed data with cells in rows and fluorophores in columns.
