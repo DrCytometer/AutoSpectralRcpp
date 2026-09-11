@@ -152,7 +152,10 @@ arma::mat unmix_autospectral_pipeline_cpp(
     }
 
     cell_resid_raw = cell_raw - (best_k_af * af_spectra.row(best_idx_af));
-    cell_unmixed = (P * cell_resid_raw.t()).t();
+    // Frisch-Waugh: P*(y - k a_j) == P*y - k*(P a_j) == init_f - k*v_library_af(:,j).
+    // Both terms are already in hand, so the per-cell F x D gemv collapses to
+    // an F-element axpy.
+    cell_unmixed = (init_f - best_k_af * v_library_af.col(best_idx_af)).t();
 
     // B. SPECTRAL OPTIMIZATION
     if (optimize && !active_opt_indices.empty()) {

@@ -45,6 +45,15 @@ struct FluorPrecomp {
   mat  r_lib_sq;    // D x n_variants  – r_lib .* r_lib (for weighted self-dots)
   vec  r_dots;      // n_variants      – dot(r_lib(:,v), r_lib(:,v))
 
+  // Exact single-swap (Frisch-Waugh) helpers. M is the projector orthogonal to
+  // the other F-1 endmembers, so everything the rest of the panel can explain
+  // is fixed and independent of which variant is swapped in. What remains is a
+  // one-dimensional fit, solvable in closed form.
+  double c_ff = 0.0;  //                 – [(S S^T)^-1]_ff, so 1/c_ff = ||M s_f||^2
+  vec  u_f;           // F-1             – U_nof applied to the master spectrum
+  mat  g_lib;         // D x n_variants  – M applied to each variant delta
+  vec  q;             // n_variants      – ||M (s_f + delta_v)||^2
+
   uword n_variants = 0;
 };
 
@@ -65,7 +74,8 @@ arma::mat unmix_autospectral_joint_cpp(
     double                 collinear_thresh     = 0.5,
     bool                   joint_pair_resolution = true,
     int                    n_af_passes          = 1,
-    double                 refine_af_quantile   = 0.5
+    double                 refine_af_quantile   = 0.5,
+    bool                   exact_variant_scan   = false
 ) {
   const mat raw_data = raw_data_in.t();   // D x N. raw_data_in is now a const&, so
   // RcppArmadillo aliases R's memory instead
@@ -119,6 +129,16 @@ arma::mat unmix_autospectral_joint_cpp(
   mat P = solve(SST_global, spectra_w);                            // F x D
   P.each_row() %= sqrt_w_global.t();
 
+  // Unweighted inverse Gram of the panel. Its f-th diagonal entry is
+  // 1 / ||M_f s_f||^2, where M_f projects orthogonal to the other F-1
+  // endmembers, and that is the quantity the exact variant-swap solution is
+  // written in terms of.
+  mat SS_inv;
+  {
+    const mat SST_raw = symmatu(spectra * spectra.t());
+    if (!inv_sympd(SS_inv, SST_raw)) SS_inv = pinv(SST_raw);
+  }
+
   // Detector-major copy of af_spectra (D x nAF). Used in the per-cell loop
   // below so subtracting a selected AF spectrum from a cell's residual reads
   // a genuine contiguous column instead of transposing a (memory-strided)
@@ -134,6 +154,11 @@ arma::mat unmix_autospectral_joint_cpp(
     const vec r_w = r_lib_af.col(j) % sqrt_w_global;
     r_dots_af[j] = dot(r_w, r_w);
   }
+  // True weighted self-dot, taken before the identifiability floor below. The
+  // floor belongs in the abundance denominator only: the rank-1 residual-norm
+  // update has to use the unmodified value, or it stops evaluating the actual
+  // residual at the abundance that was chosen.
+  const vec r_dots_af_w = r_dots_af;
   // Identifiability guard: an AF variant lying almost inside the fluorophore
   // span has a vanishing out-of-span residual direction, so its abundance k
   // is not identifiable from the residual and the raw ratio explodes. Floor
@@ -154,11 +179,6 @@ arma::mat unmix_autospectral_joint_cpp(
   // solution k = <r_j, y>_w / <r_j, r_j>_w, so numerator and denominator
   // must carry the same power of w.
   const mat r_lib_af_w = r_lib_af.each_col() % w_global;
-
-  // Unweighted self-dot of each AF candidate's residual direction, needed
-  // for the rank-1 residual-norm update in the vectorised scorer below.
-  const rowvec r_dots_af_raw_row = sum(r_lib_af % r_lib_af, 0);
-  const vec    r_dots_af_raw     = r_dots_af_raw_row.t();
 
   // Covariance-propagated AF endmember weights.
   const mat af_cov_mat = mat(P * cov(af_spectra) * P.t());
@@ -228,6 +248,21 @@ arma::mat unmix_autospectral_joint_cpp(
       for (uword v = 0; v < pc.n_variants; ++v)
         pc.r_dots[v] = dot(pc.r_lib.col(v), pc.r_lib.col(v));
 
+      // Exact single-swap helpers. M delta = delta - S_nof^T (U_nof delta), and
+      // U_nof delta is already v_lib, so g_lib costs one product.
+      pc.c_ff  = SS_inv(pc.master_idx, pc.master_idx);
+      pc.u_f   = U_nof * master_row.t();                     // F-1
+      pc.g_lib = pc.delta.t() - S_nof.t() * pc.v_lib;        // D x n_variants
+      pc.q     = 1.0 / std::max(pc.c_ff, 1e-12)
+        + 2.0 * (master_row * pc.g_lib).t()
+        + sum(pc.g_lib % pc.g_lib, 0).t();
+
+      // q_v is the reciprocal of the swapped panel's inverse-Gram diagonal for
+      // this endmember, so a small q_v means the variant has driven it toward
+      // collinearity with the rest of the panel and its abundance is no longer
+      // identifiable. Floor it on the same principle as r_dots_af above.
+      pc.q = clamp(pc.q, 1e-4 / std::max(pc.c_ff, 1e-12), arma::datum::inf);
+
       active_indices.push_back(i);
     }
   }
@@ -259,6 +294,11 @@ arma::mat unmix_autospectral_joint_cpp(
   uword max_n_variants = 1;
   for (const auto& pc : precomp)
     if (pc.active) max_n_variants = std::max(max_n_variants, pc.n_variants);
+
+  // The exact swap solution is derived in the unweighted inner product, and
+  // U_nof above is built unweighted, so per-cell detector weighting falls back
+  // to the incremental residual scan.
+  const bool use_exact = exact_variant_scan && !cell_weight;
 
   // =========================================================================
   // SECTION 3 – parallel loop
@@ -306,6 +346,7 @@ arma::mat unmix_autospectral_joint_cpp(
   static thread_local std::vector<int> best_v;
   static thread_local vec init_f;
   static thread_local vec base_resid_af;
+  static thread_local vec resid_w_af;
   static thread_local vec cell_resid;
   static thread_local vec y_hat;
   static thread_local vec k_af_vec;
@@ -336,6 +377,9 @@ arma::mat unmix_autospectral_joint_cpp(
   static thread_local vec cross_v;    // <resid, (r_v - r_cur).*w>  for all v
   static thread_local vec drsq_v;     // ||(r_v - r_cur).*w||^2      for all v
   static thread_local vec g_cur;      // <r_v.*w, r_cur.*w>          for all v
+
+  static thread_local vec a_base;     // F   – base-panel coefficients for this cell
+  static thread_local vec c_vec;      // F-1 – other endmembers with this one dropped
 
   // Weighted self-dots q_a[v] = ||r_v .* w||^2, cached per active endmember
   // per cell and reused across passes (weighted path only; unweighted uses the
@@ -379,6 +423,7 @@ arma::mat unmix_autospectral_joint_cpp(
   best_v.assign(n_opt, -1);
   init_f.set_size(F);
   base_resid_af.set_size(D);
+  resid_w_af.set_size(D);
   cell_resid.set_size(D);
   y_hat.set_size(D);
   k_af_vec.set_size(nAF);
@@ -410,6 +455,9 @@ arma::mat unmix_autospectral_joint_cpp(
   drsq_v.set_size(max_n_variants);
   g_cur.set_size(max_n_variants);
 
+  a_base.set_size(F);
+  c_vec.set_size(F > 0 ? F - 1 : 0);
+
   q_by_active.resize(n_active_sz);
   q_ready.assign(n_active_sz, 0);
 
@@ -428,18 +476,32 @@ arma::mat unmix_autospectral_joint_cpp(
   auto score_af = [&](const vec& active_raw, uword& out_j, double& out_k) -> double {
     init_f        = P * active_raw;
     base_resid_af = active_raw - spectra.t() * init_f;
-    const double base_resid_sq   = std::max(dot(base_resid_af, base_resid_af), 1e-16);
+
+    // Every residual term below is taken in the same weighted inner product as
+    // the abundance k, so presid_af measures the residual that k actually
+    // minimises. r_dots_af_w is the unfloored weighted self-dot; the floor on
+    // r_dots_af applies to the abundance denominator only.
+    if (cell_weight) {
+      resid_w_af = base_resid_af % w_global;
+      k_af_vec   = clamp(r_lib_af_w.t() * active_raw, 0.0, arma::datum::inf) / r_dots_af;
+      cross_af   = r_lib_af.t() * resid_w_af;
+    } else {
+      // Each r_j already lies in the orthogonal complement of the panel span,
+      // so <r_j, Pperp y> == <r_j, y> and one gemv serves both the abundance
+      // numerator and the residual cross-term.
+      cross_af   = r_lib_af.t() * active_raw;
+      k_af_vec   = clamp(cross_af, 0.0, arma::datum::inf) / r_dots_af;
+      resid_w_af = base_resid_af;
+    }
+
+    const double base_resid_sq   = std::max(dot(resid_w_af, base_resid_af), 1e-16);
     const double base_resid_norm = std::sqrt(base_resid_sq);
     const double base_fluor_l1   = std::max(dot(w_af, abs(init_f)), 1e-8);
 
-    // k_j for every AF candidate in one gemv (was nAF separate dot()s).
-    k_af_vec = clamp(r_lib_af_w.t() * active_raw, 0.0, arma::datum::inf) / r_dots_af;
-
     // Rank-1 residual-norm update for every candidate at once — avoids
     // forming a D-length r_j per candidate.
-    cross_af    = r_lib_af.t() * base_resid_af;
     resid_sq_af = base_resid_sq - 2.0 * (k_af_vec % cross_af)
-      + (k_af_vec % k_af_vec % r_dots_af_raw);
+      + (k_af_vec % k_af_vec % r_dots_af_w);
     presid_af   = sqrt(clamp(resid_sq_af, 0.0, arma::datum::inf)) / base_resid_norm;
 
     // Weighted-L1 fluorophore-leakage term for every candidate at once.
@@ -557,6 +619,12 @@ for (int af_pass = 1; af_pass < n_af_passes; ++af_pass) {
     const double cell_resid_ss = dot(cell_resid, cell_resid);
     std::fill(best_v.begin(), best_v.end(), -1);
 
+    // Base-panel coefficients and the unconstrained residual sum of squares.
+    // R0 comes straight out of the normal equations (|y|^2 - <a, S y>), so no
+    // extra product is needed for it.
+    a_base = fluor_unmixed;
+    const double R0 = std::max(cell_resid_ss - dot(fluor_unmixed, b_base), 1e-12);
+
 
     // =====================================================================
     // C. JOINT VARIANT SELECTION
@@ -601,62 +669,119 @@ for (int af_pass = 1; af_pass < n_af_passes; ++af_pass) {
         const int cur_v = best_v[opt_i];
         const uword nv  = pc.n_variants;
 
-        // ---- Vectorised residual-ratio scan over all variants at once ----
-        // cross_v[v] = <resid, (r_v - r_cur) .* w>      (1 gemv, shared rsw)
-        // drsq_v[v]  = ||(r_v - r_cur) .* w||^2         (hoisted q + 1 gemv)
-        // Weighted self-dots q: built once per active endmember per cell (after
-        // the skip check, so skipped endmembers cost nothing) and reused across
-        // passes. Unweighted uses the static precomputed r_dots.
-        //
-        // Writes below go into the leading nv elements of the pre-sized
-        // cross_v / drsq_v / g_cur buffers -- endmembers with fewer variants
-        // than max_n_variants never trigger a resize.
-        if (cell_weight && !q_ready[ai]) {
-          q_by_active[ai] = pc.r_lib_sq.t() * w_eff;
-          q_ready[ai] = 1;
-        }
-        const vec& q_ref = cell_weight ? q_by_active[ai] : pc.r_dots;
-        cross_v.subvec(0, nv - 1) = pc.r_lib.t() * rsw;         // n_variants
-        if (cur_v < 0) {
-          drsq_v.subvec(0, nv - 1) = q_ref;
-        } else {
-          if (cell_weight) g_cur.subvec(0, nv - 1) = pc.r_lib.t() * (pc.r_lib.col(cur_v) % w_eff);
-          else             g_cur.subvec(0, nv - 1) = pc.r_lib.t() *  pc.r_lib.col(cur_v);
-          drsq_v.subvec(0, nv - 1) = q_ref + q_ref[cur_v] - 2.0 * g_cur.subvec(0, nv - 1);
-          cross_v.subvec(0, nv - 1) -= cross_v[cur_v];
-        }
+        if (use_exact) {
+          // ---- Exact single-swap scan (Frisch-Waugh) ---------------------
+          // With M the projector orthogonal to the other F-1 endmembers, the
+          // panel re-solve after swapping variant v into this endmember has a
+          // closed form:
+          //   <M s_f, y> = a_f / c_ff                (base-panel coefficient)
+          //   num_v      = <M s_f, y> + <M d_v, y>
+          //   a_f^(v)    = num_v / q_v
+          //   RSS^(v)    = (R0 + a_f^2/c_ff) - num_v^2 / q_v
+          //   other^(v)  = (a_-f + a_f u_f) - a_f^(v) (u_f + h_v)
+          // Every term but <M d_v, y> is precomputed or already in hand, so
+          // the whole scan is one gemv plus scalar arithmetic, and the RSS is
+          // exact rather than a fixed-abundance approximation.
+          //
+          // Ratios below are taken against the base panel (R0), not the
+          // current residual, because the closed form is absolute rather than
+          // incremental: it does not care which variant is currently applied.
+          const double ms_y     = a_base[pc.master_idx] / pc.c_ff;
+          const double R0_f     = R0 + a_base[pc.master_idx] * ms_y;
+          const double R0_sqrt  = std::sqrt(R0);
+          const double R0_gate  = 1.1025 * R0;            // (1.05^2) * R0
 
-        const double abund2 = abund * abund;
-        for (uword v = 0; v < pc.n_variants; ++v) {
-          const double new_rss =
-            rss_curr - 2.0 * abund * cross_v[v] + abund2 * drsq_v[v];
-          if (new_rss > ratio_thresh_sq) continue;   // == resid_ratio > 1.05
+          cross_v.subvec(0, nv - 1) = pc.g_lib.t() * cell_resid;
 
-          // Leakage penalty — only for residual-passing variants. Scalar loop
-          // over the F-1 "other" endmembers, no vector temporaries.
-          //   new_other[o] = other_unmixed[o] - abund*(v_lib[o,v] - v_lib[o,cur])
-          double leak_num = 0.0;
-          const double* vl = pc.v_lib.colptr(v);
-          if (cur_v < 0) {
-            for (uword o = 0; o < F - 1; ++o)
-              leak_num += pc.w_leakage[o] *
-                std::abs(other_unmixed[o] - abund * vl[o]);
-          } else {
-            const double* vlc = pc.v_lib.colptr(cur_v);
-            for (uword o = 0; o < F - 1; ++o)
-              leak_num += pc.w_leakage[o] *
-                std::abs(other_unmixed[o] - abund * (vl[o] - vlc[o]));
+          uword ob = 0;
+          for (uword r = 0; r < F; ++r) {
+            if ((int)r == pc.master_idx) continue;
+            c_vec[ob] = a_base[r] + a_base[pc.master_idx] * pc.u_f[ob];
+            ++ob;
           }
-          const double leakage_ratio = leak_num / base_leakage;
 
-          const double resid_ratio =
-            std::sqrt(std::max(new_rss, 0.0)) / rss_curr_sqrt;
-          const double joint_score =
-            std::pow(std::max(resid_ratio,   1e-8), alpha) *
-            std::pow(std::max(leakage_ratio, 1e-8), 1.0 - alpha);
+          for (uword v = 0; v < nv; ++v) {
+            const double num_v   = ms_y + cross_v[v];
+            const double new_rss = R0_f - num_v * num_v / pc.q[v];
+            if (new_rss > R0_gate) continue;
 
-          if (joint_score < 1.0)
-            candidates.push_back({joint_score, ai, v});
+            const double a_f_v = num_v / pc.q[v];
+
+            double leak_num = 0.0;
+            const double* uf = pc.u_f.memptr();
+            const double* hv = pc.v_lib.colptr(v);
+            for (uword o = 0; o < F - 1; ++o)
+              leak_num += pc.w_leakage[o] *
+                std::abs(c_vec[o] - a_f_v * (uf[o] + hv[o]));
+            const double leakage_ratio = leak_num / base_leakage;
+
+            const double resid_ratio =
+              std::sqrt(std::max(new_rss, 0.0)) / R0_sqrt;
+            const double joint_score =
+              std::pow(std::max(resid_ratio,   1e-8), alpha) *
+              std::pow(std::max(leakage_ratio, 1e-8), 1.0 - alpha);
+
+            if (joint_score < 1.0)
+              candidates.push_back({joint_score, ai, v});
+          }
+        } else {
+          // ---- Vectorised residual-ratio scan over all variants at once ----
+          // cross_v[v] = <resid, (r_v - r_cur) .* w>      (1 gemv, shared rsw)
+          // drsq_v[v]  = ||(r_v - r_cur) .* w||^2         (hoisted q + 1 gemv)
+          // Weighted self-dots q: built once per active endmember per cell (after
+          // the skip check, so skipped endmembers cost nothing) and reused across
+          // passes. Unweighted uses the static precomputed r_dots.
+          //
+          // Writes below go into the leading nv elements of the pre-sized
+          // cross_v / drsq_v / g_cur buffers -- endmembers with fewer variants
+          // than max_n_variants never trigger a resize.
+          if (cell_weight && !q_ready[ai]) {
+            q_by_active[ai] = pc.r_lib_sq.t() * w_eff;
+            q_ready[ai] = 1;
+          }
+          const vec& q_ref = cell_weight ? q_by_active[ai] : pc.r_dots;
+          cross_v.subvec(0, nv - 1) = pc.r_lib.t() * rsw;         // n_variants
+          if (cur_v < 0) {
+            drsq_v.subvec(0, nv - 1) = q_ref;
+          } else {
+            if (cell_weight) g_cur.subvec(0, nv - 1) = pc.r_lib.t() * (pc.r_lib.col(cur_v) % w_eff);
+            else             g_cur.subvec(0, nv - 1) = pc.r_lib.t() *  pc.r_lib.col(cur_v);
+            drsq_v.subvec(0, nv - 1) = q_ref + q_ref[cur_v] - 2.0 * g_cur.subvec(0, nv - 1);
+            cross_v.subvec(0, nv - 1) -= cross_v[cur_v];
+          }
+
+          const double abund2 = abund * abund;
+          for (uword v = 0; v < pc.n_variants; ++v) {
+            const double new_rss =
+              rss_curr - 2.0 * abund * cross_v[v] + abund2 * drsq_v[v];
+            if (new_rss > ratio_thresh_sq) continue;   // == resid_ratio > 1.05
+
+            // Leakage penalty — only for residual-passing variants. Scalar loop
+            // over the F-1 "other" endmembers, no vector temporaries.
+            //   new_other[o] = other_unmixed[o] - abund*(v_lib[o,v] - v_lib[o,cur])
+            double leak_num = 0.0;
+            const double* vl = pc.v_lib.colptr(v);
+            if (cur_v < 0) {
+              for (uword o = 0; o < F - 1; ++o)
+                leak_num += pc.w_leakage[o] *
+                  std::abs(other_unmixed[o] - abund * vl[o]);
+            } else {
+              const double* vlc = pc.v_lib.colptr(cur_v);
+              for (uword o = 0; o < F - 1; ++o)
+                leak_num += pc.w_leakage[o] *
+                  std::abs(other_unmixed[o] - abund * (vl[o] - vlc[o]));
+            }
+            const double leakage_ratio = leak_num / base_leakage;
+
+            const double resid_ratio =
+              std::sqrt(std::max(new_rss, 0.0)) / rss_curr_sqrt;
+            const double joint_score =
+              std::pow(std::max(resid_ratio,   1e-8), alpha) *
+              std::pow(std::max(leakage_ratio, 1e-8), 1.0 - alpha);
+
+            if (joint_score < 1.0)
+              candidates.push_back({joint_score, ai, v});
+          }
         }
       }
 
