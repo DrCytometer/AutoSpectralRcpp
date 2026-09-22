@@ -11,7 +11,7 @@ AutoSpectralRcpp provides a wrapper around fast C++ functions for
 performing spectral unmixing of flow cytometry data using per-cell
 methods.
 
-Latest release: Version 1.1.0 This is compatible with AutoSpectral
+Latest release: Version 1.3.3 This is compatible with AutoSpectral
 v1.6.0.
 
 ![Per-cell fluorophore
