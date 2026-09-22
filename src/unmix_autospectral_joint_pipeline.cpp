@@ -162,14 +162,15 @@ arma::mat unmix_autospectral_joint_cpp(
   // Identifiability guard: an AF variant lying almost inside the fluorophore
   // span has a vanishing out-of-span residual direction, so its abundance k
   // is not identifiable from the residual and the raw ratio explodes. Floor
-  // each self-dot at a fraction of a robust (median) scale across all
-  // candidates, rather than the largest. A single pathological AF spectrum
-  // (e.g. corrupted upstream, or a future outlier we haven't anticipated)
-  // would otherwise inflate the floor for every other candidate at once and
-  // crush their abundance estimates toward zero; the median is insensitive
-  // to that kind of single-row corruption across a library of hundreds to
-  // thousands of candidates.
-  const double r_dots_scale = quantile_type7(r_dots_af, 0.5);
+  // each self-dot at a fraction of the largest candidate's self-dot, matching
+  // unmix_autospectral_joint.R. For a library of hundreds to thousands of AF
+  // candidates, a median-based floor is systematically far weaker than a
+  // max-based one from ordinary order-statistics spread alone -- no
+  // corrupted or outlier candidate required -- so it under-floors
+  // near-in-span candidates broadly, inflating their abundance and producing
+  // hypernegative fluorophore values in exactly the channels this guard
+  // exists to protect.
+  const double r_dots_scale = arma::max(r_dots_af);
   const double r_dots_floor = 0.01 * std::max(r_dots_scale, 1e-10);
   r_dots_af = clamp(r_dots_af, r_dots_floor, arma::datum::inf);
 
