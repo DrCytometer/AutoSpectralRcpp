@@ -1,3 +1,13 @@
+# AutoSpectralRcpp 1.3.4 (2026-10-01)
+
+## Improvements
+
+- The fluorophore minimization scoring now uses an L2 normalisation (squared)
+rather than L1 (absolute value). This means it can be calculated faster and will
+allow for greater consistency between the R package and the Honeychrome Python
+implementation. Impact on the unmixing is minimal in testing.
+
+
 # AutoSpectralRcpp 1.3.3 (2026-09-22)
 
 ## Bug fixes
