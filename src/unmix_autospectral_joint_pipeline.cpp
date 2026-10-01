@@ -185,6 +185,12 @@ arma::mat unmix_autospectral_joint_cpp(
   const mat af_cov_mat = mat(P * cov(af_spectra) * P.t());
   const vec w_af = sqrt(abs(af_cov_mat.diag())) + 1e-8;
 
+  // Weighted v_lib_af and its squared-column sums, precomputed once so the
+  // per-cell fluorophore-leakage term below is a single rank-1 (quadratic)
+  // update instead of an O(F x nAF) abs() pass per cell.
+  const mat v_lib_af_w = v_lib_af.each_col() % w_af;              // F x nAF
+  const vec c_fluor_af = (sum(v_lib_af_w % v_lib_af_w, 0)).t();   // nAF
+
   // Determine whether endmember variant optimisation is requested.
   const bool af_only = (variants_list.size() == 0);
 
@@ -356,7 +362,9 @@ arma::mat unmix_autospectral_joint_cpp(
   static thread_local vec presid_af;
   static thread_local vec pfluor_af;
   static thread_local vec score_af_vec;
-  static thread_local mat diffs_af;
+  static thread_local vec w_af_init;
+  static thread_local vec cross_fluor_af;
+  static thread_local vec fluor_sq_af;
   static thread_local vec coeff_init;
   static thread_local vec other_unmixed;
   static thread_local vec trial_unmixed;
@@ -433,7 +441,9 @@ arma::mat unmix_autospectral_joint_cpp(
   presid_af.set_size(nAF);
   pfluor_af.set_size(nAF);
   score_af_vec.set_size(nAF);
-  diffs_af.set_size(F, nAF);
+  w_af_init.set_size(F);
+  cross_fluor_af.set_size(nAF);
+  fluor_sq_af.set_size(nAF);
   coeff_init.set_size(F);
   other_unmixed.set_size(F > 0 ? F - 1 : 0);
   trial_unmixed.set_size(F);
@@ -497,7 +507,9 @@ arma::mat unmix_autospectral_joint_cpp(
 
     const double base_resid_sq   = std::max(dot(resid_w_af, base_resid_af), 1e-16);
     const double base_resid_norm = std::sqrt(base_resid_sq);
-    const double base_fluor_l1   = std::max(dot(w_af, abs(init_f)), 1e-8);
+    w_af_init = w_af % init_f;
+    const double base_fluor_sq   = std::max(dot(w_af_init, w_af_init), 1e-16);
+    const double base_fluor_norm = std::sqrt(base_fluor_sq);
 
     // Rank-1 residual-norm update for every candidate at once — avoids
     // forming a D-length r_j per candidate.
@@ -505,10 +517,12 @@ arma::mat unmix_autospectral_joint_cpp(
       + (k_af_vec % k_af_vec % r_dots_af_w);
     presid_af   = sqrt(clamp(resid_sq_af, 0.0, arma::datum::inf)) / base_resid_norm;
 
-    // Weighted-L1 fluorophore-leakage term for every candidate at once.
-    diffs_af = v_lib_af.each_row() % k_af_vec.t();
-    diffs_af.each_col() -= init_f;
-    pfluor_af = (w_af.t() * abs(diffs_af)).t() / base_fluor_l1;
+    // Weighted-L2 fluorophore-leakage term for every candidate at once, via
+    // the same rank-1 (quadratic) update as presid_af above.
+    cross_fluor_af = v_lib_af_w.t() * w_af_init;
+    fluor_sq_af    = base_fluor_sq - 2.0 * (k_af_vec % cross_fluor_af)
+      + (k_af_vec % k_af_vec % c_fluor_af);
+    pfluor_af      = sqrt(clamp(fluor_sq_af, 0.0, arma::datum::inf)) / base_fluor_norm;
 
     score_af_vec = presid_af % pfluor_af;
 
