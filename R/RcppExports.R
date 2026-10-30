@@ -84,6 +84,49 @@ find_local_maxima <- function(z, neigh_size) {
     .Call(`_AutoSpectralRcpp_find_local_maxima`, z, neigh_size)
 }
 
+#' Anchored Spillover Slopes, One Source Against Every Target (C++)
+#'
+#' @description
+#' Compiled form of AutoSpectral's `.fix.anchored.r()` (the anchored pair
+#' estimator of `fix.my.unmix()`), with the same results. For each target:
+#' the source-negative bulk events that are negative for the target, with
+#' the current slope removed, give the anchor (their median source and
+#' target values); a Huber line through the anchor is fitted to the clearly
+#' positive source events that are negative for the target (upper
+#' boundary), and after the first pass also above the target's lower
+#' boundary (band); negativity is re-decided with the new slope up to
+#' `max_mask_passes` times, stopping once the slope moves by less than
+#' `mask_tolerance` of itself or leaves `max_coefficient`.
+#'
+#' The caller selects and subsamples the positive (`xb`, `Yb`, ...) and bulk
+#' (`xk`, `Yk`, ...) events, so this draws no random numbers and gives the
+#' same result for any `n_threads`.
+#'
+#' @param xb Numeric vector, the clearly positive events' source abundance.
+#' @param Yb,Tb Numeric matrices (positive events x targets), their target
+#'   abundance and the target's upper boundary.
+#' @param Lb Numeric matrix of the same shape, the target's lower boundary,
+#'   or `NULL` for a one-sided cut.
+#' @param xk Numeric vector, the bulk events' source abundance.
+#' @param Yk,Tk Numeric matrices (bulk events x targets), as `Yb`, `Tb`.
+#' @param start_slope Numeric vector (targets), warm starts.
+#' @param max_coefficient double, largest accepted coefficient.
+#' @param max_mask_passes int, negativity re-decisions after the first fit.
+#' @param mask_tolerance double, relative slope change that ends them.
+#' @param min_count int, fewest target-negative positive and bulk events.
+#' @param k,max_iter,tol Huber tuning constant, IRLS iterations and
+#'   tolerance.
+#' @param n_threads int, OpenMP threads across targets. Default `1`.
+#'
+#' @return A list with `slope`, `n` and `se` per target; `slope` and `se`
+#'   are `NA` where fewer than `min_count` events were target-negative on
+#'   the first pass.
+#'
+#' @export
+fix_anchored_batch_rcpp <- function(xb, Yb, Tb, Lb, xk, Yk, Tk, start_slope, max_coefficient = 0.5, max_mask_passes = 3L, mask_tolerance = 0.05, min_count = 25L, k = 1.345, max_iter = 100L, tol = 1e-4, n_threads = 1L) {
+    .Call(`_AutoSpectralRcpp_fix_anchored_batch_rcpp`, xb, Yb, Tb, Lb, xk, Yk, Tk, start_slope, max_coefficient, max_mask_passes, mask_tolerance, min_count, k, max_iter, tol, n_threads)
+}
+
 #' Batched Truncated Spillover Slope, One Source Against Every Target (C++)
 #'
 #' @description
