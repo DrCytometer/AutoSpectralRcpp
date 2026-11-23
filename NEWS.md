@@ -1,3 +1,34 @@
+# AutoSpectralRcpp 1.3.5 (2026-11-23)
+
+## Bug fixes
+
+- `readFCS()` and `writeFCS()`: FCS files with padding after the final TEXT
+delimiter, or with empty keyword values (e.g. NovoCyte files), no longer have
+their keyword/value pairs shifted. A doubled delimiter is read as an escaped
+literal inside a value (FCS 3.1), and on writing, keywords with a blank name or
+value are dropped and delimiters inside values are escaped. Matches
+AutoSpectral 1.8.9.
+
+
+# AutoSpectralRcpp 1.3.4 (2026-10-30)
+
+## New features
+
+- `fix_anchored_batch_rcpp()`: compiled, multithreaded kernel for the
+`estimator = "anchored"` pair slopes in AutoSpectral's `fix.my.unmix()` (one
+source against every target, warm-started, with iterative target-negativity
+masking). AutoSpectral falls back to its R implementation if this is not
+available.
+
+## Improvements
+
+- AF candidate scoring in `unmix_autospectral_joint_cpp()` uses a weighted-L2
+fluorophore-leakage term in place of weighted-L1, computed for all candidates
+at once by a rank-1 update rather than a per-cell pass over every candidate.
+Faster, and matches the R pipeline in `unmix.autospectral.joint()`; AF
+assignment can differ slightly from 1.3.3.
+
+
 # AutoSpectralRcpp 1.3.3 (2026-09-22)
 
 ## Bug fixes
