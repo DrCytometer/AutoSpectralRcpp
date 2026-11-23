@@ -54,6 +54,14 @@ writeFCS <- function(mat, keys, file.name, output.dir) {
   keys[['$BEGINANALYSIS']] <- "0"
   keys[['$ENDANALYSIS']]   <- "0"
 
+  # Each keyword needs a non-blank name and a single non-blank value: an empty
+  # value would read as an escaped delimiter and shift every following
+  # key/value pair. A delimiter inside a value is escaped by doubling it
+  # (FCS 3.1 3.2.4).
+  keys <- lapply(keys, function(v) paste(as.character(v), collapse = ","))
+  keys <- keys[nzchar(trimws(names(keys))) & nzchar(trimws(unlist(keys, use.names = FALSE)))]
+  keys <- lapply(keys, function(v) gsub(delim, paste0(delim, delim), v, fixed = TRUE))
+
   # --- 2. Build initial TEXT segment ----------------------------------------
   text.segment <- paste0(
     delim,
