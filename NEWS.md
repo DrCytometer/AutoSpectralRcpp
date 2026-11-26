@@ -1,3 +1,17 @@
+# AutoSpectralRcpp 1.3.6 (2026-11-26)
+
+## Bug fixes
+
+- `writeFCS()`: the TEXT delimiter is chosen per file as a character that
+appears in no keyword or value, so nothing needs escaping and
+`flowCore::read.FCS()` reads the files with its default `emptyValue = TRUE`.
+Escaping by doubling is kept as a fallback and now covers keyword names too.
+- `writeFCS()`: writes the required `$MODE` keyword, and sets `$PnB` to 32 and
+`$PnE` to `0,0` for every parameter, as FCS 3.1 requires for floating-point
+data. Matches AutoSpectral 1.9.0, which no longer copies `$MODE` from the raw
+file.
+
+
 # AutoSpectralRcpp 1.3.5 (2026-11-23)
 
 ## Bug fixes

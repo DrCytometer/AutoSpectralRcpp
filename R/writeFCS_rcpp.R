@@ -37,13 +37,19 @@ writeFCS <- function(mat, keys, file.name, output.dir) {
 
   output.dir <- path.expand(output.dir)
 
-  delim <- "|"
-
   # --- 1. Enforce mandatory keywords ----------------------------------------
   keys[["$TOT"]]      <- as.character(nrow(mat))
   keys[["$PAR"]]      <- as.character(ncol(mat))
   keys[["$DATATYPE"]] <- "F"
   keys[["$BYTEORD"]]  <- "1,2,3,4"
+  keys[["$MODE"]]     <- "L"
+
+  # The DATA segment is always 32-bit float, so every parameter is 32 bits
+  # wide and, for float data, linear: $PnE must be 0,0 (FCS 3.1).
+  for (i in seq_len(ncol(mat))) {
+    keys[[paste0("$P", i, "B")]] <- "32"
+    keys[[paste0("$P", i, "E")]] <- "0,0"
+  }
   keys[["$NEXTDATA"]] <- "0"
 
   # Segment offsets: placeholders updated after layout is calculated.
@@ -56,11 +62,20 @@ writeFCS <- function(mat, keys, file.name, output.dir) {
 
   # Each keyword needs a non-blank name and a single non-blank value: an empty
   # value would read as an escaped delimiter and shift every following
-  # key/value pair. A delimiter inside a value is escaped by doubling it
-  # (FCS 3.1 3.2.4).
+  # key/value pair.
   keys <- lapply(keys, function(v) paste(as.character(v), collapse = ","))
   keys <- keys[nzchar(trimws(names(keys))) & nzchar(trimws(unlist(keys, use.names = FALSE)))]
+
+  # Use a delimiter that occurs in no keyword name or value, so nothing needs
+  # escaping: readers disagree on doubled delimiters (flowCore reads them as
+  # empty values by default). If every candidate occurs, escape by doubling
+  # (FCS 3.1 3.2.4).
+  all.text <- paste(c(names(keys), unlist(keys, use.names = FALSE)), collapse = "")
+  candidates <- c("|", "\f", "~", "^", "!")
+  unused <- candidates[!vapply(candidates, grepl, logical(1), x = all.text, fixed = TRUE)]
+  delim <- if (length(unused) > 0) unused[1] else "|"
   keys <- lapply(keys, function(v) gsub(delim, paste0(delim, delim), v, fixed = TRUE))
+  names(keys) <- gsub(delim, paste0(delim, delim), names(keys), fixed = TRUE)
 
   # --- 2. Build initial TEXT segment ----------------------------------------
   text.segment <- paste0(
@@ -89,14 +104,14 @@ writeFCS <- function(mat, keys, file.name, output.dir) {
 
   # Stamp resolved offsets into TEXT segment
   text.segment <- sub(
-    "\\|\\$BEGINDATA\\|0\\|",
-    paste0("|$BEGINDATA|", DATA.start, "|"),
-    text.segment
+    paste0(delim, "$BEGINDATA", delim, "0", delim),
+    paste0(delim, "$BEGINDATA", delim, DATA.start, delim),
+    text.segment, fixed = TRUE
   )
   text.segment <- sub(
-    "\\|\\$ENDDATA\\|0\\|",
-    paste0("|$ENDDATA|", DATA.end, "|"),
-    text.segment
+    paste0(delim, "$ENDDATA", delim, "0", delim),
+    paste0(delim, "$ENDDATA", delim, DATA.end, delim),
+    text.segment, fixed = TRUE
   )
 
   # --- 4. Build 58-byte header ----------------------------------------------
